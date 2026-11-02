@@ -9,7 +9,7 @@ import requests
 from typing import Dict, Any
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-DEFAULT_MODEL = "gemini-1.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 SYSTEM_PROMPT = """You are a senior behavioral cybersecurity expert and threat intelligence analyst.
 Analyze the user-submitted text for subtle social engineering tactics, psychological manipulation (e.g. artificial urgency, manufactured fear, authority impersonation, false scarcity), and technical scam markers.
