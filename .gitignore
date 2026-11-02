@@ -9,7 +9,6 @@ scam-or-safe/.env
 # Dependencies
 node_modules/
 */node_modules/
-package-lock.json
 
 # Build outputs
 dist/
@@ -49,3 +48,4 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
