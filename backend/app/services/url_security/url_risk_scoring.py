@@ -1,8 +1,12 @@
 """
-Explainable Local URL Risk Scoring Engine.
-Calculates a transparent security risk score (0-100) and severity level (LOW, MEDIUM, HIGH)
-based strictly on local structural heuristics, protocol inspection, keyword analysis,
-and domain attributes without requiring external URL reputation APIs.
+Explainable Multi-Layered URL Risk Scoring Engine.
+Synthesizes security risk scores (0-100) and severity levels (LOW, MEDIUM, HIGH)
+by combining:
+1. External Threat Intelligence (Google Safe Browsing & VirusTotal)
+2. Local Structural Patterns (Typosquatting, brand impersonation, punycode, direct IPs)
+3. Protocol & Keyword Checks (HTTP vs HTTPS, login, verify, update, reward, claim)
+4. Domain Intelligence (RDAP age, registrar)
+5. Safe Redirect & SSRF Defense telemetry
 """
 from typing import Dict, Any, List, Tuple
 
@@ -11,16 +15,21 @@ def calculate_url_risk_score(
     validated_url: Dict[str, Any],
     domain_analysis: Dict[str, Any],
     rdap_intel: Dict[str, Any],
-    redirect_intel: Dict[str, Any]
+    redirect_intel: Dict[str, Any],
+    safe_browsing: Dict[str, Any] = None,
+    virustotal: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """
-    Computes an explainable local risk score from 0 to 100.
+    Computes an explainable risk score from 0 to 100.
     Returns the integer score, risk level, contributing factors, and formula notes.
     """
     contributing_factors: List[Dict[str, Any]] = []
     base_score = 10  # Baseline inquiry score
 
-    # 1. SSRF & Internal Network Targets (Immediate Critical Risk)
+    safe_browsing = safe_browsing or {}
+    virustotal = virustotal or {}
+
+    # 1. SSRF & Internal IP Attacks (Immediate Max Risk)
     if validated_url.get("is_private_or_local") or redirect_intel.get("ssrf_blocked"):
         reason = validated_url.get("ip_security_reason") or redirect_intel.get("ssrf_reason") or "Internal / Private IP target"
         contributing_factors.append({
@@ -37,7 +46,29 @@ def calculate_url_risk_score(
             "formula_summary": "Automatic maximum score due to internal IP or SSRF attempt."
         }
 
-    # 2. Brand Impersonation & Typosquatting
+    # 2. Google Safe Browsing Matches (External Threat Intel)
+    if safe_browsing.get("match_found"):
+        threat_type = safe_browsing.get("primary_threat", "MALWARE/PHISHING")
+        contributing_factors.append({
+            "category": "Google Safe Browsing Intelligence",
+            "weight": 75,
+            "severity": "critical",
+            "description": f"URL is blacklisted in Google Safe Browsing threat database ({threat_type})."
+        })
+
+    # 3. VirusTotal Multi-Engine Detections (External Threat Intel)
+    vt_malicious = virustotal.get("malicious_count", 0)
+    vt_suspicious = virustotal.get("suspicious_count", 0)
+    if vt_malicious > 0 or vt_suspicious > 0:
+        vt_weight = min(70, (vt_malicious * 15) + (vt_suspicious * 8))
+        contributing_factors.append({
+            "category": "VirusTotal Multi-Engine Intelligence",
+            "weight": vt_weight,
+            "severity": "high" if vt_malicious >= 3 else "medium",
+            "description": f"{vt_malicious} security vendor(s) classified this URL as malicious, {vt_suspicious} as suspicious."
+        })
+
+    # 4. Brand Impersonation & Typosquatting
     brand_imp = domain_analysis.get("brand_impersonation")
     if brand_imp:
         contributing_factors.append({
@@ -47,7 +78,7 @@ def calculate_url_risk_score(
             "description": brand_imp.get("description", "URL impersonates a high-value brand.")
         })
 
-    # 3. Domain Structural Findings & Protocol Findings
+    # 5. Local Structural, Protocol, & Keyword Findings
     for f in domain_analysis.get("findings", []):
         ftype = f.get("type")
         if ftype == "double_extension_deception":
@@ -156,7 +187,7 @@ def calculate_url_risk_score(
                 "description": f.get("description")
             })
 
-    # 4. Domain Age Risk (RDAP)
+    # 6. Domain Age Risk (RDAP)
     if rdap_intel.get("is_newly_registered"):
         age_days = rdap_intel.get("domain_age_days", 30)
         weight = 30 if age_days < 7 else 20
@@ -167,7 +198,7 @@ def calculate_url_risk_score(
             "description": f"Domain was registered very recently ({rdap_intel.get('domain_age_readable')}). High proportion of phishing domains are under 30 days old."
         })
 
-    # 5. Suspicious Redirect Behavior
+    # 7. Suspicious Redirect Behavior
     if redirect_intel.get("is_suspicious_redirect"):
         contributing_factors.append({
             "category": "Cross-Domain Redirect",
@@ -180,9 +211,10 @@ def calculate_url_risk_score(
     total_added_weight = sum(f["weight"] for f in contributing_factors)
     raw_score = base_score + total_added_weight
 
-    # 6. Mitigating Factors: Established Reputable Domain
+    # 8. Mitigating Factors: Established Reputable Domain
     is_reputable = domain_analysis.get("is_reputable", False)
-    if is_reputable and not brand_imp and not any(f["severity"] in ("high", "critical") for f in contributing_factors):
+    has_active_threat = safe_browsing.get("match_found") or vt_malicious > 0 or brand_imp
+    if is_reputable and not has_active_threat and not any(f["severity"] in ("high", "critical") for f in contributing_factors):
         raw_score = min(raw_score, 12)
         contributing_factors.append({
             "category": "Reputable Domain Credit",
@@ -204,7 +236,7 @@ def calculate_url_risk_score(
     if len(contributing_factors) == 0 or (len(contributing_factors) == 1 and contributing_factors[0].get("severity") == "info"):
         formula_summary = "No obvious suspicious indicators found."
     else:
-        formula_summary = f"Calculated score {final_score}/100 ({level.upper()}) based on {len(contributing_factors)} active local structural indicator(s)."
+        formula_summary = f"Calculated score {final_score}/100 ({level.upper()}) based on {len(contributing_factors)} active security indicator(s)."
 
     return {
         "score": final_score,

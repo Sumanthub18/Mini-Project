@@ -1,8 +1,9 @@
 """
-URL Security Report Formatter and AI Explainer (Local Analysis Mode).
-Coordinates local URL structural inspection, protocol verification,
-RDAP domain intelligence, safe redirect tracing, and leverages the centralized
-AIRouter to generate explainable, evidence-grounded security narratives without external API dependencies.
+Comprehensive URL Security Report Formatter and AI Explainer.
+Coordinates external threat intelligence (Google Safe Browsing & VirusTotal),
+local structural heuristics, protocol verification, RDAP domain intelligence,
+safe redirect tracing, and leverages the centralized AIRouter to generate
+evidence-grounded security narratives without leaking credentials.
 """
 import time
 import json
@@ -10,6 +11,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 from .url_validator import validate_url
+from .safe_browsing_service import SafeBrowsingService
+from .virustotal_service import VirusTotalService
 from .domain_analyzer import DomainAnalyzer
 from .rdap_service import RDAPService
 from .redirect_analyzer import RedirectAnalyzer
@@ -21,10 +24,10 @@ AI_URL_EXPLANATION_PROMPT = """You are a senior cyber threat intelligence analys
 Analyze the following URL security findings and provide a transparent, evidence-grounded assessment.
 
 CRITICAL INSTRUCTIONS:
-1. Base your explanation strictly on the retrieved local structural evidence below.
-2. DO NOT invent threat intelligence or claim this link was checked against external blacklists.
-3. Explicitly state that external malware/phishing blacklist database checks are unavailable.
-4. When no warning signs are present, state: "No obvious suspicious indicators found." Never claim a URL is 100% safe or guaranteed immune.
+1. Base your explanation strictly on the retrieved security evidence below.
+2. DO NOT invent threat intelligence or claim this link was verified against databases that returned unavailable.
+3. If threat intelligence was unavailable or returned no match, explicitly state that rather than assuming the URL is benign or malicious.
+4. When no warning signs are detected, state: "No obvious suspicious indicators found." Never claim a URL is 100% safe or guaranteed immune.
 5. Provide actionable, protective advice for end users.
 
 EVIDENCE DATA:
@@ -41,21 +44,31 @@ Respond ONLY with a valid JSON object matching this exact structure:
     "Specific actionable recommendation 3"
   ],
   "limitations": [
-    "Note regarding unavailable external malware/phishing blacklist feeds"
+    "Note regarding unavailable lookups or heuristic limitations"
   ]
 }}"""
 
 
 class URLReportCoordinator:
     def __init__(self):
+        self.safe_browsing = SafeBrowsingService()
+        self.virustotal = VirusTotalService()
         self.domain_analyzer = DomainAnalyzer()
         self.rdap = RDAPService()
         self.redirect_analyzer = RedirectAnalyzer()
         self.ai_router = AIRouter()
 
     def get_service_status(self) -> Dict[str, Any]:
-        """Returns status of local URL security subsystems."""
+        """Returns readiness status of all URL security providers without exposing secret keys."""
         return {
+            "google_safe_browsing": {
+                "configured": self.safe_browsing.is_configured(),
+                "role": "Known malware, phishing, and social engineering threat matching"
+            },
+            "virustotal": {
+                "configured": self.virustotal.is_configured(),
+                "role": "Multi-engine antivirus and threat reputation intelligence"
+            },
             "local_structural_analysis": {
                 "active": True,
                 "role": "Protocol inspection, typosquatting modeling, keyword analysis, and pattern heuristics"
@@ -71,23 +84,19 @@ class URLReportCoordinator:
             "ai_explainer": {
                 "active": self.ai_router.groq.is_configured() or self.ai_router.gemini.is_configured(),
                 "role": "Behavioral threat explanation and user safety guidance via Gemini/Groq"
-            },
-            "external_threat_databases": {
-                "active": False,
-                "status": "unavailable",
-                "note": "Known malware/phishing blacklist database checks are disabled (zero external API dependencies)."
             }
         }
 
     def analyze_url(self, raw_url: str, check_redirects: bool = True) -> Dict[str, Any]:
         """
-        Executes complete local URL security pipeline:
+        Executes complete multi-layered URL security pipeline:
         1. Validation & SSRF check
         2. Domain heuristic, protocol inspection, and brand impersonation analysis
         3. RDAP domain age & registration lookup
         4. Safe redirect tracing
-        5. Explainable local risk scoring
-        6. Grounded AI explanation
+        5. Threat intelligence lookups (Google Safe Browsing + VirusTotal)
+        6. Explainable risk scoring
+        7. Grounded AI explanation
         """
         start_time = time.perf_counter()
 
@@ -129,12 +138,18 @@ class URLReportCoordinator:
                 "summary": "Redirect tracing skipped for internal IP or by configuration."
             }
 
-        # Step 5: Local Risk Scoring
+        # Step 5: Threat Intelligence Lookups (Safe Browsing & VirusTotal)
+        safe_browsing_result = self.safe_browsing.check_url(url_to_analyze)
+        virustotal_result = self.virustotal.get_url_report(url_to_analyze)
+
+        # Step 6: Multi-Layered Risk Scoring
         risk_evaluation = calculate_url_risk_score(
             validated_url=validation,
             domain_analysis=domain_intel,
             rdap_intel=rdap_intel,
-            redirect_intel=redirect_intel
+            redirect_intel=redirect_intel,
+            safe_browsing=safe_browsing_result,
+            virustotal=virustotal_result
         )
 
         has_warnings = any(
@@ -142,7 +157,7 @@ class URLReportCoordinator:
             for f in risk_evaluation.get("contributing_factors", [])
         )
 
-        # Step 6: Build Evidence Bundle for AI Explanation
+        # Step 7: Build Evidence Bundle for AI Explanation
         evidence_bundle = {
             "url": url_to_analyze,
             "hostname": hostname,
@@ -156,16 +171,25 @@ class URLReportCoordinator:
             "registrar": rdap_intel.get("registrar"),
             "brand_impersonation": domain_intel.get("brand_impersonation"),
             "matched_keywords": domain_intel.get("matched_keywords", []),
+            "google_safe_browsing": {
+                "status": safe_browsing_result.get("status"),
+                "match_found": safe_browsing_result.get("match_found"),
+                "matches": safe_browsing_result.get("matches")
+            },
+            "virustotal": {
+                "status": virustotal_result.get("status"),
+                "detection_ratio": virustotal_result.get("detection_ratio"),
+                "malicious_count": virustotal_result.get("malicious_count")
+            },
             "redirects": {
                 "redirect_count": redirect_intel.get("redirect_count"),
                 "final_url": redirect_intel.get("final_url"),
                 "ssrf_blocked": redirect_intel.get("ssrf_blocked")
             },
-            "suspicious_indicators": risk_evaluation.get("contributing_factors", []),
-            "external_databases_note": "Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics."
+            "suspicious_indicators": risk_evaluation.get("contributing_factors", [])
         }
 
-        # Step 7: AI Explanation via Centralized AI Router
+        # Step 8: AI Explanation via Centralized AI Router
         ai_explanation = self._generate_ai_explanation(evidence_bundle, has_warnings)
 
         elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
@@ -178,8 +202,8 @@ class URLReportCoordinator:
         ]
 
         # Determine Summary
-        if not has_warnings:
-            final_summary = "No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable."
+        if not has_warnings and not safe_browsing_result.get("match_found") and virustotal_result.get("malicious_count", 0) == 0:
+            final_summary = "No obvious suspicious indicators found. Note: Absence of a match does not guarantee 100% safety."
         else:
             final_summary = ai_explanation.get("summary") or risk_evaluation.get("formula_summary")
 
@@ -236,7 +260,11 @@ class URLReportCoordinator:
                 "is_shortener": domain_intel.get("is_shortener"),
                 "matched_keywords": domain_intel.get("matched_keywords", [])
             },
-            "security_disclaimer": "Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics, protocol verification, and AI threat modeling. No URL can be guaranteed 100% safe.",
+            "threat_intelligence": {
+                "google_safe_browsing": safe_browsing_result,
+                "virustotal": virustotal_result
+            },
+            "security_disclaimer": "Threat intelligence databases index known malicious URLs. Absence of a match does not guarantee 100% safety. Never enter credentials on unverified websites.",
             "redirect_analysis": redirect_intel,
             "contributing_factors": risk_evaluation.get("contributing_factors", []),
             "execution_time_ms": elapsed_ms,
@@ -245,7 +273,7 @@ class URLReportCoordinator:
 
     def _generate_ai_explanation(self, evidence: Dict[str, Any], has_warnings: bool) -> Dict[str, Any]:
         """
-        Invokes Gemini or Groq to synthesize an explanation from local evidence.
+        Invokes Gemini or Groq to synthesize an explanation from local and threat evidence.
         Falls back to rule-based explanation if providers are unavailable.
         """
         evidence_str = json.dumps(evidence, indent=2)
@@ -268,11 +296,11 @@ class URLReportCoordinator:
         score = evidence.get("risk_score", 0)
 
         if not has_warnings:
-            summary = "No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable."
-            threat_exp = "Local structural analysis revealed no typosquatting, deceptive subdomains, suspicious keywords, or dangerous redirect patterns."
+            summary = "No obvious suspicious indicators found. Note: Absence of a match does not guarantee 100% safety."
+            threat_exp = "No known malicious patterns or active threat blacklist hits were identified for this address."
         elif level == "high":
-            summary = f"High Risk URL ({score}/100). Significant suspicious indicators detected locally."
-            threat_exp = "The URL exhibits characteristics associated with phishing, brand impersonation, deceptive redirection, or insecure credential capture."
+            summary = f"High Risk URL ({score}/100). Significant security indicators or threat patterns detected."
+            threat_exp = "The URL exhibits characteristics associated with malicious phishing campaigns, brand impersonation, or dangerous redirect patterns."
         else:
             summary = f"Medium Risk URL ({score}/100). Caution advised based on structural heuristics."
             threat_exp = "The URL includes unencrypted transport, sensitive portal keywords, or recent domain registration that warrant verification."
@@ -287,6 +315,6 @@ class URLReportCoordinator:
                 "Do not assume the URL is safe merely because no overt markers were detected."
             ],
             "limitations": [
-                "Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics."
+                "Analysis includes structural evaluation, RDAP registration records, and available threat databases."
             ]
         }

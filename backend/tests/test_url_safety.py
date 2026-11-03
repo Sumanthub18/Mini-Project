@@ -1,6 +1,6 @@
 """
-Automated Unit and Integration Tests for Day 5 Local URL Safety Engine.
-Verifies self-contained local URL analysis with ZERO external URL reputation API dependencies:
+Automated Unit and Integration Tests for URL Safety & Threat Intelligence Engine.
+Tests all threat intelligence integrations and local structural security analyzers:
 1. Normal website with clean indicators returning 'No obvious suspicious indicators found'
 2. HTTPS vs HTTP protocol checks
 3. Suspicious keywords (login, verify, update, reward, claim, kyc, otp)
@@ -12,15 +12,17 @@ Verifies self-contained local URL analysis with ZERO external URL reputation API
 9. Double file extension deception (invoice.pdf.exe)
 10. Open redirect parameter exploitation
 11. Safe redirect tracing
-12. Private IP URL blocking (SSRF RFC1918)
-13. Localhost URL blocking
-14. SSRF cloud metadata blocking (169.254.169.254)
-15. DNS resolution failure handling
-16. Invalid URL syntax rejection
-17. Verification of zero external URL API key requirements
-18. Disclaimer stating known malware/phishing database checks are unavailable
-19. Supabase authentication handling
-20. End-to-end /api/url/analyze API integration
+12. Malicious URL detected by Google Safe Browsing
+13. URL with no Safe Browsing match (clean disclaimer verification)
+14. Safe Browsing unconfigured handling
+15. VirusTotal unconfigured handling
+16. Private IP URL blocking (SSRF RFC1918)
+17. Localhost URL blocking
+18. SSRF cloud metadata blocking (169.254.169.254)
+19. DNS resolution failure handling
+20. Invalid URL syntax rejection
+21. Supabase authentication handling
+22. End-to-end /api/url/analyze API integration
 """
 import unittest
 import sys
@@ -35,13 +37,15 @@ from app.services.url_security.url_validator import (
     validate_url, is_safe_ip, resolve_hostname_safely
 )
 from app.services.url_security.domain_analyzer import DomainAnalyzer
+from app.services.url_security.safe_browsing_service import SafeBrowsingService
+from app.services.url_security.virustotal_service import VirusTotalService
 from app.services.url_security.rdap_service import RDAPService
 from app.services.url_security.redirect_analyzer import RedirectAnalyzer
 from app.services.url_security.url_risk_scoring import calculate_url_risk_score
 from app.services.url_security.url_report_formatter import URLReportCoordinator
 
 
-class TestLocalURLSafetyEngine(unittest.TestCase):
+class TestURLSafetyEngine(unittest.TestCase):
     def setUp(self):
         self.app = create_app()
         self.app.config["TESTING"] = True
@@ -156,8 +160,60 @@ class TestLocalURLSafetyEngine(unittest.TestCase):
                 self.assertEqual(res["redirect_count"], 1)
                 self.assertEqual(res["final_url"], "http://evil-tracker.com/landing")
 
-    # 12. Private IP URL (SSRF defense RFC1918)
-    def test_12_private_ip_url(self):
+    # 12. Threat intelligence match (Google Safe Browsing)
+    def test_12_threat_intelligence_match(self):
+        svc = SafeBrowsingService()
+        svc.api_key = "dummy-test-key"
+        with patch("requests.post") as mock_post:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {
+                "matches": [
+                    {
+                        "threatType": "MALWARE",
+                        "platformType": "ANY_PLATFORM",
+                        "threatEntryType": "URL"
+                    }
+                ]
+            }
+            mock_post.return_value = mock_resp
+            res = svc.check_url("http://malware-site.test")
+            self.assertTrue(res["match_found"])
+            self.assertEqual(res["status"], "threat_detected")
+            self.assertEqual(res["primary_threat"], "MALWARE")
+
+    # 13. URL with no Safe Browsing match (clean disclaimer verification)
+    def test_13_threat_intelligence_clean(self):
+        svc = SafeBrowsingService()
+        svc.api_key = "dummy-test-key"
+        with patch("requests.post") as mock_post:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {}  # No matches
+            mock_post.return_value = mock_resp
+            res = svc.check_url("http://clean-site.test")
+            self.assertFalse(res["match_found"])
+            self.assertEqual(res["status"], "no_match_found")
+            self.assertIn("Absence of a match does not guarantee safety", res["disclaimer"])
+
+    # 14. Safe Browsing unconfigured handling
+    def test_14_safe_browsing_unconfigured(self):
+        svc = SafeBrowsingService()
+        svc.api_key = ""
+        res = svc.check_url("http://test.com")
+        self.assertFalse(res["configured"])
+        self.assertEqual(res["status"], "unavailable")
+
+    # 15. VirusTotal unconfigured handling
+    def test_15_virustotal_unconfigured(self):
+        svc = VirusTotalService()
+        svc.api_key = ""
+        res = svc.get_url_report("http://test.com")
+        self.assertFalse(res["configured"])
+        self.assertEqual(res["status"], "unavailable")
+
+    # 16. Private IP URL (SSRF defense RFC1918)
+    def test_16_private_ip_url(self):
         val_10 = validate_url("http://10.0.0.1/admin")
         self.assertTrue(val_10["is_private_or_local"])
         self.assertIn("Private", val_10["ip_security_reason"])
@@ -165,16 +221,16 @@ class TestLocalURLSafetyEngine(unittest.TestCase):
         val_192 = validate_url("http://192.168.1.1/login")
         self.assertTrue(val_192["is_private_or_local"])
 
-    # 13. Localhost URL blocking
-    def test_13_localhost_url(self):
+    # 17. Localhost URL blocking
+    def test_17_localhost_url(self):
         val = validate_url("http://localhost:8080/secret")
         self.assertTrue(val["is_private_or_local"])
 
         val_loopback = validate_url("http://127.0.0.1:3000")
         self.assertTrue(val_loopback["is_private_or_local"])
 
-    # 14. SSRF attempts (Cloud metadata)
-    def test_14_ssrf_metadata_defense(self):
+    # 18. SSRF attempts (Cloud metadata)
+    def test_18_ssrf_metadata_defense(self):
         val = validate_url("http://169.254.169.254/latest/meta-data/")
         self.assertTrue(val["is_private_or_local"])
         self.assertIn("metadata", val["ip_security_reason"].lower())
@@ -183,42 +239,27 @@ class TestLocalURLSafetyEngine(unittest.TestCase):
         res = tracer.trace_redirects("http://169.254.169.254/latest/meta-data/")
         self.assertTrue(res["ssrf_blocked"])
 
-    # 15. DNS resolution failure
-    def test_15_dns_resolution_failure(self):
+    # 19. DNS resolution failure
+    def test_19_dns_resolution_failure(self):
         is_safe, ip, err = resolve_hostname_safely("this-domain-definitely-does-not-exist-xyz12345.org")
         self.assertFalse(is_safe)
         self.assertTrue("DNS" in err or "resolution" in err)
 
-    # 16. Invalid URL syntax
-    def test_16_invalid_url(self):
+    # 20. Invalid URL syntax
+    def test_20_invalid_url(self):
         val = validate_url("not_a_valid_url")
         self.assertFalse(val["valid"])
         val_ftp = validate_url("ftp://files.example.com")
         self.assertFalse(val_ftp["valid"])
 
-    # 17. Zero external URL reputation API requirements
-    def test_17_zero_external_api_keys_required(self):
-        coordinator = URLReportCoordinator()
-        status = coordinator.get_service_status()
-        self.assertTrue(status["local_structural_analysis"]["active"])
-        self.assertFalse(status["external_threat_databases"]["active"])
-        self.assertEqual(status["external_threat_databases"]["status"], "unavailable")
-
-    # 18. Disclaimer stating known database checks are unavailable
-    def test_18_security_disclaimer_present(self):
-        coordinator = URLReportCoordinator()
-        res = coordinator.analyze_url("https://example.com", check_redirects=False)
-        self.assertIn("Known malware and phishing blacklist database checks are unavailable", res["security_disclaimer"])
-        self.assertIn("100% safe", res["security_disclaimer"])
-
-    # 19. Supabase authentication handling
-    def test_19_supabase_auth_handling(self):
+    # 21. Supabase authentication handling
+    def test_21_supabase_auth_handling(self):
         res = self.client.get("/api/url/history")
         self.assertEqual(res.status_code, 401)
         self.assertFalse(res.json["success"])
 
-    # 20. End-to-End /api/url/analyze API integration
-    def test_20_api_url_analyze_endpoint(self):
+    # 22. End-to-End /api/url/analyze API integration
+    def test_22_api_url_analyze_endpoint(self):
         res = self.client.post(
             "/api/url/analyze",
             json={"url": "https://paypa1.com/secure-login", "check_redirects": False}
@@ -230,8 +271,8 @@ class TestLocalURLSafetyEngine(unittest.TestCase):
         self.assertEqual(data["risk_level"], "high")
         self.assertGreaterEqual(data["risk_score"], 60)
         self.assertIn("domain_intelligence", data)
+        self.assertIn("threat_intelligence", data)
         self.assertIn("recommendations", data)
-        self.assertIn("security_disclaimer", data)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,11 @@
 /**
- * URL Safety and Threat Intelligence Service (Local Analysis Mode)
+ * URL Safety and Threat Intelligence Service
  *
  * Connects to the Flask Backend (/api/url/analyze) for:
- * - Local protocol and transport security inspection (HTTPS vs unencrypted HTTP)
- * - Suspicious URL pattern and social engineering keyword analysis (login, verify, update, reward, claim)
+ * - Google Safe Browsing API v4 threat lookups
+ * - VirusTotal multi-engine reputation checks
+ * - Local protocol & transport security checks (HTTPS vs unencrypted HTTP)
+ * - Suspicious URL pattern & social engineering keyword analysis (login, verify, update, reward, claim)
  * - Lookalike domain and typosquatting detection (Levenshtein distance, homoglyph modeling)
  * - Punycode (IDN homograph) and direct IP host detection
  * - URL shortener identification
@@ -12,8 +14,7 @@
  * - Safe HTTP redirect tracing with SSRF & private IP defense
  * - AI-powered transparent explanation via Gemini & Groq
  *
- * Operates without external URL reputation API keys (Safe Browsing / VirusTotal).
- * Gracefully falls back to client-side heuristics if the backend is temporarily offline.
+ * Secret API keys reside strictly on the Flask backend and are never exposed in frontend code.
  */
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
@@ -56,20 +57,20 @@ export async function getUrlEngineHealth() {
     return {
       status: 'offline',
       service: 'Backend unreachable',
-      external_api_dependencies: false,
       providers: {
+        google_safe_browsing: { configured: false },
+        virustotal: { configured: false },
         local_structural_analysis: { active: false },
         rdap_domain_intel: { active: false },
         ssrf_safe_redirects: { active: false },
         ai_explainer: { active: false },
-        external_threat_databases: { active: false, status: 'unavailable' }
       },
     }
   }
 }
 
 /**
- * Analyzes a URL via the local backend engine.
+ * Analyzes a URL via the backend engine.
  *
  * @param {string} url - Target URL to analyze
  * @param {object} [options]
@@ -121,6 +122,7 @@ export async function analyzeUrl(url, options = {}) {
       recommendations: data.recommendations || [],
       ai_explanation: data.ai_explanation,
       domain_intelligence: data.domain_intelligence,
+      threat_intelligence: data.threat_intelligence,
       security_disclaimer: data.security_disclaimer,
       redirect_analysis: data.redirect_analysis,
       contributing_factors: data.contributing_factors,
@@ -134,7 +136,7 @@ export async function analyzeUrl(url, options = {}) {
 }
 
 /**
- * Fast local reputation check.
+ * Fast reputation & structural check.
  */
 export async function checkUrlReputation(url) {
   const cleanUrl = /^https?:\/\//i.test(url.trim()) ? url.trim() : `http://${url.trim()}`
@@ -143,7 +145,7 @@ export async function checkUrlReputation(url) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: cleanUrl }),
   })
-  if (!res.ok) throw new Error('Local inspection failed')
+  if (!res.ok) throw new Error('Reputation lookup failed')
   const json = await res.json()
   return json.data
 }
@@ -163,7 +165,7 @@ export async function reportUrlFeedback({ url, reportType, comment }) {
 }
 
 /**
- * Local client-side fallback analysis when backend is unavailable.
+ * Local client-side fallback analysis when backend is offline.
  */
 function runClientFallbackAnalysis(url) {
   let hostname = ''
@@ -189,11 +191,11 @@ function runClientFallbackAnalysis(url) {
       normalized_url: url,
       score: 5,
       level: 'LOW',
-      summary: 'No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable.',
+      summary: 'No obvious suspicious indicators found. Note: Absence of a match does not guarantee 100% safety.',
       has_warnings: false,
       warnings: [],
       recommendations: [
-        'Always verify that the address in your browser matches your expected service.',
+        'Always verify that the address matches your expected service.',
         'Check for the secure HTTPS lock in your browser address bar.',
         'Do not assume any URL is 100% safe.',
       ],
@@ -205,7 +207,11 @@ function runClientFallbackAnalysis(url) {
         scheme: 'https',
         is_reputable: true,
       },
-      security_disclaimer: 'Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics. No URL can be guaranteed 100% safe.',
+      threat_intelligence: {
+        google_safe_browsing: { status: 'offline', configured: false, match_found: false },
+        virustotal: { status: 'offline', configured: false, has_report: false },
+      },
+      security_disclaimer: 'Absence of a match does not guarantee 100% safety. Never enter credentials on unverified websites.',
       redirect_analysis: { has_redirects: false, redirect_count: 0, hops: [] },
       isFallback: true,
     }
@@ -270,8 +276,8 @@ function runClientFallbackAnalysis(url) {
     score: finalScore,
     level,
     summary: hasWarnings
-      ? `${level} Risk URL (${finalScore}/100). Suspicious local indicators detected.`
-      : 'No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable.',
+      ? `${level} Risk URL (${finalScore}/100). Suspicious indicators detected.`
+      : 'No obvious suspicious indicators found. Note: Absence of a match does not guarantee 100% safety.',
     has_warnings: hasWarnings,
     warnings,
     recommendations:
@@ -294,7 +300,11 @@ function runClientFallbackAnalysis(url) {
       scheme,
       is_reputable: false,
     },
-    security_disclaimer: 'Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics. No URL can be guaranteed 100% safe.',
+    threat_intelligence: {
+      google_safe_browsing: { status: 'offline', configured: false, match_found: false },
+      virustotal: { status: 'offline', configured: false, has_report: false },
+    },
+    security_disclaimer: 'Absence of a match does not guarantee 100% safety. Never enter credentials on unverified websites.',
     redirect_analysis: { has_redirects: false, redirect_count: 0, hops: [] },
     isFallback: true,
   }

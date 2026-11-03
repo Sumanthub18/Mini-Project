@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Link2, Trash2, RefreshCw, AlertCircle, Shield, ShieldAlert,
   ShieldCheck, Globe, Server, Clock, ExternalLink, Lock,
-  AlertTriangle, CheckCircle2, Layers, Cpu, CornerDownRight, Check, KeyRound, Info
+  AlertTriangle, CheckCircle2, Layers, Cpu, CornerDownRight, Check
 } from 'lucide-react'
 import { analyzeUrl, isValidUrl, getUrlEngineHealth, EXAMPLE_URLS } from '../services/urlService.js'
 import { useScanHistory } from '../hooks/useScanHistory.jsx'
@@ -75,8 +75,8 @@ export default function URLChecker() {
           findings: res.contributing_factors || [],
           evidenceSources: [
             {
-              title: 'Local URL Safety Inspection',
-              publisher: 'ScamOrSafe Local Engine',
+              title: 'URL Threat Intelligence Engine',
+              publisher: 'ScamOrSafe Security',
               source_url: targetUrl,
               evidence_summary: res.summary
             }
@@ -118,73 +118,69 @@ export default function URLChecker() {
   return (
     <div className="max-w-4xl mx-auto animate-slide-up space-y-6">
       <SectionHeader
-        title="Local URL Safety & Pattern Engine"
-        subtitle="Inspect URLs for phishing, typosquatting, social engineering keywords, protocol vulnerabilities, and deceptive redirects using local structural heuristics and AI modeling."
+        title="URL Safety & Threat Intelligence Engine"
+        subtitle="Inspect URLs for phishing, typosquatting, social engineering keywords, Google Safe Browsing matches, VirusTotal engine reputation, and deceptive redirects safely server-side."
       />
 
-      {/* Safety Notice & No External APIs Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div
-          className="flex items-start gap-3 px-4 py-3 rounded-xl text-xs"
-          style={{ background: '#F59E0B15', border: '1px solid #F59E0B44', color: '#F1F5F9' }}
-        >
-          <ShieldAlert size={18} className="flex-shrink-0 mt-0.5 text-amber-400" />
-          <div className="space-y-1">
-            <p className="font-semibold text-amber-300">SAFETY DIRECTIVE:</p>
-            <p className="text-slate-300">
-              Never visit suspicious links or enter sensitive personal or financial credentials. No tool can guarantee a URL is 100% safe.
-            </p>
-          </div>
-        </div>
-
-        <div
-          className="flex items-start gap-3 px-4 py-3 rounded-xl text-xs"
-          style={{ background: '#06B6D415', border: '1px solid #06B6D444', color: '#F1F5F9' }}
-        >
-          <Info size={18} className="flex-shrink-0 mt-0.5 text-cyan-400" />
-          <div className="space-y-1">
-            <p className="font-semibold text-cyan-300">DATABASE STATUS:</p>
-            <p className="text-slate-300">
-              Known malware and phishing blacklist database checks are <strong>unavailable</strong>. All inspections run locally with zero external API dependencies.
-            </p>
-          </div>
+      {/* Safety Notice Banner */}
+      <div
+        className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+        style={{ background: '#F59E0B15', border: '1px solid #F59E0B44', color: '#F1F5F9' }}
+      >
+        <ShieldAlert size={18} className="flex-shrink-0 mt-0.5 text-amber-400" />
+        <div className="text-xs space-y-1">
+          <p className="font-semibold text-amber-300">SAFETY DIRECTIVE:</p>
+          <p className="text-slate-300">
+            Never visit suspicious links or submit sensitive personal or financial credentials. All threat intelligence queries and redirect traces
+            are performed securely on the backend with strict SSRF defense. No tool can guarantee a URL is 100% safe.
+          </p>
         </div>
       </div>
 
-      {/* Local Engine Readiness Badges */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-slate-400 font-medium">Local Modules:</span>
-        <span
-          className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-          style={{ background: '#10B98118', border: '1px solid #10B98144', color: '#34D399' }}
-        >
-          <ShieldCheck size={12} /> Heuristic Pattern Analyzer: Active
-        </span>
-        <span
-          className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-          style={{ background: '#10B98118', border: '1px solid #10B98144', color: '#34D399' }}
-        >
-          <Lock size={12} /> Protocol & Transport Check: Active
-        </span>
-        <span
-          className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-          style={{ background: '#06B6D418', border: '1px solid #06B6D444', color: '#22D3EE' }}
-        >
-          <Globe size={12} /> IANA RDAP Domain Age: Active
-        </span>
-        <span
-          className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-          style={{ background: '#8B5CF618', border: '1px solid #8B5CF644', color: '#A78BFA' }}
-        >
-          <Server size={12} /> SSRF Guard: Active
-        </span>
-        <span
-          className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-          style={{ background: '#64748B18', border: '1px solid #64748B33', color: '#94A3B8' }}
-        >
-          <KeyRound size={12} /> External Threat Feeds: Disabled
-        </span>
-      </div>
+      {/* Security Engine Readiness Badges */}
+      {healthStatus && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-slate-400 font-medium">Security Subsystems:</span>
+          <span
+            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
+            style={{
+              background: healthStatus.providers?.google_safe_browsing?.configured ? '#10B98118' : '#64748B18',
+              border: `1px solid ${healthStatus.providers?.google_safe_browsing?.configured ? '#10B98144' : '#64748B33'}`,
+              color: healthStatus.providers?.google_safe_browsing?.configured ? '#34D399' : '#94A3B8'
+            }}
+          >
+            <Shield size={12} /> Google Safe Browsing: {healthStatus.providers?.google_safe_browsing?.configured ? 'Active' : 'Unconfigured'}
+          </span>
+          <span
+            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
+            style={{
+              background: healthStatus.providers?.virustotal?.configured ? '#10B98118' : '#64748B18',
+              border: `1px solid ${healthStatus.providers?.virustotal?.configured ? '#10B98144' : '#64748B33'}`,
+              color: healthStatus.providers?.virustotal?.configured ? '#34D399' : '#94A3B8'
+            }}
+          >
+            <Server size={12} /> VirusTotal: {healthStatus.providers?.virustotal?.configured ? 'Active' : 'Optional'}
+          </span>
+          <span
+            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
+            style={{ background: '#10B98118', border: '1px solid #10B98144', color: '#34D399' }}
+          >
+            <Lock size={12} /> Protocol & Pattern Heuristics: Active
+          </span>
+          <span
+            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
+            style={{ background: '#06B6D418', border: '1px solid #06B6D444', color: '#22D3EE' }}
+          >
+            <Globe size={12} /> IANA RDAP Domain Age: Active
+          </span>
+          <span
+            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
+            style={{ background: '#8B5CF618', border: '1px solid #8B5CF644', color: '#A78BFA' }}
+          >
+            <Lock size={12} /> SSRF Guard: Active
+          </span>
+        </div>
+      )}
 
       {/* Input Box */}
       {!result && (
@@ -226,7 +222,7 @@ export default function URLChecker() {
           </div>
 
           <div className="flex justify-between items-center mt-2">
-            <span className="text-xs text-slate-500">Supports banking links, shortened URLs, social forwards, and direct hostnames.</span>
+            <span className="text-xs text-slate-500">Supports banking links, shortened URLs, social media forwards, and direct hostnames.</span>
             <button
               onClick={handleClear}
               disabled={loading || (!input && !result)}
@@ -239,7 +235,7 @@ export default function URLChecker() {
 
           {/* Example URLs */}
           <div className="mt-5 pt-4 border-t border-slate-800">
-            <p className="text-xs font-semibold text-slate-400 mb-2">Try test examples:</p>
+            <p className="text-xs font-semibold text-slate-400 mb-2">Try real test vectors:</p>
             <div className="flex flex-wrap gap-2">
               {EXAMPLE_URLS.map(u => (
                 <button
@@ -264,9 +260,9 @@ export default function URLChecker() {
         <Card className="flex flex-col items-center justify-center py-12 gap-4">
           <Spinner size={42} color="#22D3EE" />
           <div className="text-center space-y-1">
-            <p className="text-sm font-semibold text-slate-200">Executing Local URL Security Analysis…</p>
+            <p className="text-sm font-semibold text-slate-200">Executing Deep URL Threat Intelligence Pipeline…</p>
             <p className="text-xs text-slate-500">
-              Protocol verification • Typosquatting heuristics • Keyword extraction • RDAP age • SSRF defense
+              Protocol verification • Safe Browsing & VirusTotal • Heuristic pattern extraction • RDAP domain age • SSRF defense
             </p>
           </div>
         </Card>
@@ -311,31 +307,33 @@ export default function URLChecker() {
                   </button>
                 </div>
 
-                {/* Summary / Clean Status Notice */}
+                {/* Summary */}
                 <div className="space-y-1">
-                  <p className="text-sm text-slate-200 font-medium leading-relaxed">
-                    {result.summary}
-                  </p>
-                  <p className="text-xs text-slate-500 italic">
-                    {result.security_disclaimer}
-                  </p>
+                  <p className="text-sm text-slate-200 font-medium leading-relaxed">{result.summary}</p>
+                  <p className="text-xs text-slate-500 italic">{result.security_disclaimer}</p>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* 2. Grid: Domain Intelligence & Local Protocol Inspection */}
+          {/* 2. Grid: Domain Intelligence & Threat Intelligence */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Domain Intelligence Card */}
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-800">
                 <Globe size={18} className="text-cyan-400" />
-                <h3 className="font-semibold text-sm text-slate-100">Domain & Registration Intelligence</h3>
+                <h3 className="font-semibold text-sm text-slate-100">Domain & Protocol Intelligence</h3>
               </div>
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Hostname:</span>
                   <span className="font-mono text-slate-200">{result.domain_intelligence?.hostname || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
+                  <span className="text-slate-400">Transport Protocol:</span>
+                  <span className={`font-semibold ${result.domain_intelligence?.is_https ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {result.domain_intelligence?.is_https ? 'HTTPS Encrypted' : 'Plain HTTP (Unencrypted)'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
                   <span className="text-slate-400">Root Domain / TLD:</span>
@@ -359,6 +357,18 @@ export default function URLChecker() {
                     {result.domain_intelligence?.is_ip ? 'Direct IP Host' : result.domain_intelligence?.is_punycode ? 'Punycode / Homograph' : 'Standard FQDN'}
                   </span>
                 </div>
+                {result.domain_intelligence?.matched_keywords?.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-slate-400 block mb-1">Keywords Detected:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {result.domain_intelligence.matched_keywords.map((k, i) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[10px] border border-rose-500/30">
+                          {k}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {result.domain_intelligence?.is_shortener && (
                   <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300">
                     Shortened URL service detected. Target masks the ultimate destination.
@@ -367,55 +377,66 @@ export default function URLChecker() {
               </div>
             </Card>
 
-            {/* Local Protocol & Keyword Inspection Card */}
+            {/* Threat Intelligence Card */}
             <Card>
               <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-800">
-                <Lock size={18} className="text-indigo-400" />
-                <h3 className="font-semibold text-sm text-slate-100">Protocol & Pattern Inspection</h3>
+                <Shield size={18} className="text-indigo-400" />
+                <h3 className="font-semibold text-sm text-slate-100">Threat Blacklists & Vendor Consensus</h3>
               </div>
-              <div className="space-y-3 text-xs">
-                {/* Transport Security */}
+              <div className="space-y-4 text-xs">
+                {/* Google Safe Browsing */}
                 <div className="p-3 rounded-lg" style={{ background: '#121A2B', border: '1px solid #1E2D45' }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-slate-200">Transport Security (Protocol):</span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                      Google Safe Browsing v4
+                    </span>
                     <span
                       className="px-2 py-0.5 rounded text-[10px] font-bold"
                       style={{
-                        background: result.domain_intelligence?.is_https ? '#10B98122' : '#EF444422',
-                        color: result.domain_intelligence?.is_https ? '#34D399' : '#F87171',
-                        border: `1px solid ${result.domain_intelligence?.is_https ? '#10B98144' : '#EF444444'}`
+                        background: result.threat_intelligence?.google_safe_browsing?.match_found ? '#EF444422' : '#10B98122',
+                        color: result.threat_intelligence?.google_safe_browsing?.match_found ? '#F87171' : '#34D399',
+                        border: `1px solid ${result.threat_intelligence?.google_safe_browsing?.match_found ? '#EF444444' : '#10B98144'}`
                       }}
                     >
-                      {result.domain_intelligence?.is_https ? 'HTTPS ENCRYPTED' : 'PLAIN HTTP (INSECURE)'}
+                      {result.threat_intelligence?.google_safe_browsing?.match_found
+                        ? 'THREAT DETECTED'
+                        : result.threat_intelligence?.google_safe_browsing?.configured
+                        ? 'NO THREAT MATCH'
+                        : 'KEY UNCONFIGURED'}
                     </span>
                   </div>
-                  <p className="text-slate-400 text-[11px]">
-                    {result.domain_intelligence?.is_https
-                      ? 'Connection uses TLS/SSL transport encryption.'
-                      : 'Connection is unencrypted. Login credentials or data sent to this address can be intercepted.'}
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    {result.threat_intelligence?.google_safe_browsing?.summary || 'Safe Browsing check performed.'}
+                  </p>
+                  <p className="text-slate-500 text-[10px] mt-1 italic">
+                    {result.threat_intelligence?.google_safe_browsing?.disclaimer}
                   </p>
                 </div>
 
-                {/* Keywords Analysis */}
+                {/* VirusTotal */}
                 <div className="p-3 rounded-lg" style={{ background: '#121A2B', border: '1px solid #1E2D45' }}>
-                  <span className="font-semibold text-slate-200 block mb-1">High-Risk Keywords:</span>
-                  {result.domain_intelligence?.matched_keywords?.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {result.domain_intelligence.matched_keywords.map((kw, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[10px] border border-rose-500/30">
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-slate-400 text-[11px]">No high-risk credential or prize-claim keywords detected in URL path.</p>
-                  )}
-                </div>
-
-                {/* External Feeds Notice */}
-                <div className="p-2.5 rounded bg-slate-900/50 border border-slate-800 text-[11px] text-slate-400">
-                  <span className="font-semibold text-slate-300">Database Notice: </span>
-                  External malware/phishing feeds (Safe Browsing / VirusTotal) are unavailable. Results are based strictly on local structural modeling.
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-semibold text-slate-200">VirusTotal Multi-Engine Reputation</span>
+                    <span
+                      className="px-2 py-0.5 rounded text-[10px] font-bold"
+                      style={{
+                        background: result.threat_intelligence?.virustotal?.is_flagged ? '#EF444422' : '#3B82F622',
+                        color: result.threat_intelligence?.virustotal?.is_flagged ? '#F87171' : '#60A5FA',
+                        border: `1px solid ${result.threat_intelligence?.virustotal?.is_flagged ? '#EF444444' : '#3B82F644'}`
+                      }}
+                    >
+                      {result.threat_intelligence?.virustotal?.detection_ratio
+                        ? `${result.threat_intelligence.virustotal.detection_ratio} Engines Flagged`
+                        : result.threat_intelligence?.virustotal?.status === 'not_found'
+                        ? 'Not Yet Indexed'
+                        : result.threat_intelligence?.virustotal?.configured
+                        ? 'Reputation Clean'
+                        : 'KEY OPTIONAL'}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    {result.threat_intelligence?.virustotal?.summary || 'Multi-vendor reputation analysis.'}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -495,7 +516,7 @@ export default function URLChecker() {
               </div>
             ) : (
               <div className="p-3 rounded-lg flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-                <CheckCircle2 size={16} /> No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable.
+                <CheckCircle2 size={16} /> No obvious suspicious indicators found. Note: Absence of a match does not guarantee 100% safety.
               </div>
             )}
           </Card>
