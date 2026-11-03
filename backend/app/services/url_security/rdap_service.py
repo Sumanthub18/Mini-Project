@@ -181,3 +181,4 @@ class RDAPService:
                 "is_newly_registered": False,
                 "summary": f"RDAP lookup failed: {str(e)}"
             }
+

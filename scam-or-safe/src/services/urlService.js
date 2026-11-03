@@ -1,14 +1,18 @@
 /**
- * URL Safety and Threat Intelligence Service — Day 5 Full Engine
+ * URL Safety and Threat Intelligence Service (Local Analysis Mode)
  *
  * Connects to the Flask Backend (/api/url/analyze) for:
- * - Google Safe Browsing API v4 threat lookups
- * - VirusTotal multi-engine reputation checks
+ * - Local protocol and transport security inspection (HTTPS vs unencrypted HTTP)
+ * - Suspicious URL pattern and social engineering keyword analysis (login, verify, update, reward, claim)
+ * - Lookalike domain and typosquatting detection (Levenshtein distance, homoglyph modeling)
+ * - Punycode (IDN homograph) and direct IP host detection
+ * - URL shortener identification
+ * - Suspicious subdomains and misleading URL path/parameter detection
  * - RDAP domain intelligence & age calculation
  * - Safe HTTP redirect tracing with SSRF & private IP defense
- * - Heuristic domain analysis (typosquatting, lookalikes, brand impersonation)
  * - AI-powered transparent explanation via Gemini & Groq
  *
+ * Operates without external URL reputation API keys (Safe Browsing / VirusTotal).
  * Gracefully falls back to client-side heuristics if the backend is temporarily offline.
  */
 
@@ -33,7 +37,6 @@ export function isValidUrl(str) {
     if (!['http:', 'https:'].includes(parsed.protocol)) return false
     const host = parsed.hostname
     if (!host || host.includes(' ')) return false
-    // Valid domain must contain a dot or be localhost or valid IP
     return host.includes('.') || host === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)
   } catch {
     return false
@@ -53,19 +56,20 @@ export async function getUrlEngineHealth() {
     return {
       status: 'offline',
       service: 'Backend unreachable',
+      external_api_dependencies: false,
       providers: {
-        google_safe_browsing: { configured: false },
-        virustotal: { configured: false },
-        rdap_domain_intel: { configured: false },
-        ssrf_safe_redirects: { configured: false },
-        ai_explainer: { configured: false },
+        local_structural_analysis: { active: false },
+        rdap_domain_intel: { active: false },
+        ssrf_safe_redirects: { active: false },
+        ai_explainer: { active: false },
+        external_threat_databases: { active: false, status: 'unavailable' }
       },
     }
   }
 }
 
 /**
- * Analyzes a URL via the Day 5 backend.
+ * Analyzes a URL via the local backend engine.
  *
  * @param {string} url - Target URL to analyze
  * @param {object} [options]
@@ -112,11 +116,12 @@ export async function analyzeUrl(url, options = {}) {
       score: data.risk_score,
       level: (data.risk_level || 'LOW').toUpperCase(),
       summary: data.summary,
+      has_warnings: data.has_warnings,
       warnings: (data.warnings || []).map(w => (typeof w === 'string' ? { reason: w } : w)),
       recommendations: data.recommendations || [],
       ai_explanation: data.ai_explanation,
       domain_intelligence: data.domain_intelligence,
-      threat_intelligence: data.threat_intelligence,
+      security_disclaimer: data.security_disclaimer,
       redirect_analysis: data.redirect_analysis,
       contributing_factors: data.contributing_factors,
       execution_time_ms: data.execution_time_ms,
@@ -129,7 +134,7 @@ export async function analyzeUrl(url, options = {}) {
 }
 
 /**
- * Fast reputation-only check (Google Safe Browsing & VirusTotal).
+ * Fast local reputation check.
  */
 export async function checkUrlReputation(url) {
   const cleanUrl = /^https?:\/\//i.test(url.trim()) ? url.trim() : `http://${url.trim()}`
@@ -138,7 +143,7 @@ export async function checkUrlReputation(url) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: cleanUrl }),
   })
-  if (!res.ok) throw new Error('Reputation lookup failed')
+  if (!res.ok) throw new Error('Local inspection failed')
   const json = await res.json()
   return json.data
 }
@@ -162,8 +167,11 @@ export async function reportUrlFeedback({ url, reportType, comment }) {
  */
 function runClientFallbackAnalysis(url) {
   let hostname = ''
+  let scheme = 'http'
   try {
-    hostname = new URL(url).hostname.toLowerCase()
+    const parsed = new URL(url)
+    hostname = parsed.hostname.toLowerCase()
+    scheme = parsed.protocol.replace(':', '')
   } catch {
     hostname = url
   }
@@ -174,38 +182,51 @@ function runClientFallbackAnalysis(url) {
   const REPUTABLE = ['google.com', 'apple.com', 'microsoft.com', 'wikipedia.org', 'github.com', 'amazon.com']
   const isReputable = REPUTABLE.some(r => hostname === r || hostname.endsWith('.' + r))
 
-  if (isReputable) {
+  if (isReputable && scheme === 'https') {
     return {
       type: 'URL',
       url,
       normalized_url: url,
       score: 5,
       level: 'LOW',
-      summary: 'Recognized reputable domain with standard security baseline.',
+      summary: 'No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable.',
+      has_warnings: false,
       warnings: [],
       recommendations: [
-        'Always ensure the address matches your intended destination.',
+        'Always verify that the address in your browser matches your expected service.',
         'Check for the secure HTTPS lock in your browser address bar.',
+        'Do not assume any URL is 100% safe.',
       ],
       domain_intelligence: {
         hostname,
         root_domain: hostname,
         domain_age: 'Established (Reputable Domain)',
+        is_https: true,
+        scheme: 'https',
         is_reputable: true,
       },
-      threat_intelligence: {
-        google_safe_browsing: { status: 'offline', configured: false, match_found: false },
-        virustotal: { status: 'offline', configured: false, has_report: false },
-      },
+      security_disclaimer: 'Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics. No URL can be guaranteed 100% safe.',
       redirect_analysis: { has_redirects: false, redirect_count: 0, hops: [] },
       isFallback: true,
     }
   }
 
+  // Protocol check
+  if (scheme !== 'https') {
+    warnings.push({ reason: 'Unencrypted HTTP protocol detected. Data transmitted to this website is sent in plain text.' })
+    score += 15
+  }
+
+  // Keywords check
+  if (/login|verify|update|reward|claim|bonus|free|kyc|otp/i.test(url)) {
+    warnings.push({ reason: 'URL contains sensitive authentication or incentive keywords (login, verify, update, reward, claim).' })
+    score += 25
+  }
+
   // Typosquatting heuristics
   if (/paypa1|paypai|amaz0n|g00gle|netfl1x|app1e/i.test(hostname)) {
     warnings.push({ reason: 'Domain visually mimics a major brand using character substitution (typosquatting).' })
-    score += 55
+    score += 50
   }
 
   // Brand keyword in domain
@@ -223,7 +244,7 @@ function runClientFallbackAnalysis(url) {
   // Suspicious TLD
   if (/\.(xyz|top|tk|ml|cf|ga|gq|buzz|icu|fit|rest)$/i.test(hostname)) {
     warnings.push({ reason: 'High-abuse top-level domain frequently associated with short-lived phishing sites.' })
-    score += 25
+    score += 20
   }
 
   // Shortener
@@ -240,6 +261,7 @@ function runClientFallbackAnalysis(url) {
 
   const finalScore = Math.min(100, score)
   const level = finalScore >= 60 ? 'HIGH' : finalScore >= 30 ? 'MEDIUM' : 'LOW'
+  const hasWarnings = warnings.length > 0
 
   return {
     type: 'URL',
@@ -247,12 +269,10 @@ function runClientFallbackAnalysis(url) {
     normalized_url: url,
     score: finalScore,
     level,
-    summary:
-      level === 'HIGH'
-        ? 'High risk URL with multiple suspicious structural indicators detected.'
-        : level === 'MEDIUM'
-        ? 'Medium risk URL. Proceed with caution and verify the source.'
-        : 'Low risk URL with standard syntax and no overt phishing indicators.',
+    summary: hasWarnings
+      ? `${level} Risk URL (${finalScore}/100). Suspicious local indicators detected.`
+      : 'No obvious suspicious indicators found. Note: Known malware/phishing database checks are unavailable.',
+    has_warnings: hasWarnings,
     warnings,
     recommendations:
       level === 'HIGH'
@@ -264,17 +284,17 @@ function runClientFallbackAnalysis(url) {
         : [
             'Verify unexpected links with the sender through a trusted channel.',
             'Ensure HTTPS encryption is active before entering credentials.',
+            'Remember that absence of detected indicators does not guarantee 100% safety.',
           ],
     domain_intelligence: {
       hostname,
       root_domain: hostname,
       domain_age: 'Unavailable (Backend offline)',
+      is_https: scheme === 'https',
+      scheme,
       is_reputable: false,
     },
-    threat_intelligence: {
-      google_safe_browsing: { status: 'offline', configured: false, match_found: false },
-      virustotal: { status: 'offline', configured: false, has_report: false },
-    },
+    security_disclaimer: 'Known malware and phishing blacklist database checks are unavailable. Analysis is based entirely on local structural heuristics. No URL can be guaranteed 100% safe.',
     redirect_analysis: { has_redirects: false, redirect_count: 0, hops: [] },
     isFallback: true,
   }

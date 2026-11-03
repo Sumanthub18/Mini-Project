@@ -1,32 +1,31 @@
 """
-URL Safety and Threat Intelligence API Routes.
-Exposes endpoints for full URL analysis, reputation checks, history retrieval,
-and community feedback reporting.
+URL Safety and Threat Intelligence API Routes (Local Analysis Mode).
+Exposes endpoints for local URL analysis, structural reputation checks, history retrieval,
+and community feedback reporting. Requires zero external URL reputation API keys.
 """
 from flask import Blueprint, request, jsonify
 from ..services.url_security.url_report_formatter import URLReportCoordinator
-from ..services.url_security.safe_browsing_service import SafeBrowsingService
-from ..services.url_security.virustotal_service import VirusTotalService
 from ..services.url_security.url_validator import validate_url
+from ..services.url_security.domain_analyzer import DomainAnalyzer
 from ..services.supabase_service import SupabaseService
 from ..utils.response_formatter import format_error_response, format_success_response
 
 url_bp = Blueprint("url", __name__)
 coordinator = URLReportCoordinator()
-safe_browsing_svc = SafeBrowsingService()
-virustotal_svc = VirusTotalService()
+domain_analyzer = DomainAnalyzer()
 supabase_svc = SupabaseService()
 
 
 @url_bp.route("/url/health", methods=["GET"])
 def url_health():
     """
-    Returns readiness status of all URL Safety subsystems.
+    Returns readiness status of local URL Safety subsystems.
     """
     status = coordinator.get_service_status()
     return jsonify(format_success_response({
         "status": "healthy",
-        "service": "URL Safety and Threat Intelligence Engine",
+        "service": "Local URL Safety and Pattern Analysis Engine",
+        "external_api_dependencies": False,
         "providers": status,
         "supabase_connected": supabase_svc.is_configured()
     }))
@@ -35,9 +34,9 @@ def url_health():
 @url_bp.route("/url/analyze", methods=["POST"])
 def analyze_url():
     """
-    Primary URL safety analysis endpoint.
-    Performs validation, SSRF defense, domain analysis, RDAP lookups,
-    redirect expansion, threat intelligence checks, risk scoring, and AI explanation.
+    Primary local URL safety analysis endpoint.
+    Performs validation, SSRF defense, protocol checks, domain & typosquatting analysis,
+    keyword extraction, RDAP lookups, redirect expansion, local risk scoring, and AI explanation.
     """
     raw_json = request.get_json(silent=True)
     if not raw_json:
@@ -54,7 +53,7 @@ def analyze_url():
     if not val.get("valid"):
         return jsonify(format_error_response(val.get("error", "Invalid URL format"), "URL_VALIDATION_ERROR")), 422
 
-    # Run analysis pipeline
+    # Run local analysis pipeline
     result = coordinator.analyze_url(target_url, check_redirects=check_redirects)
 
     # Optional Supabase persistence if user JWT / User-ID is present
@@ -74,26 +73,16 @@ def analyze_url():
                 "severity": factor.get("severity", "medium")
             })
 
-        db_sources = []
-        # Google Safe Browsing source
-        gsb = result.get("threat_intelligence", {}).get("google_safe_browsing", {})
-        if gsb.get("configured"):
-            db_sources.append({
-                "title": "Google Safe Browsing v4",
-                "publisher": "Google Security",
-                "url": "https://safebrowsing.google.com/",
-                "summary": gsb.get("summary", "")
-            })
-        # VirusTotal source
-        vt = result.get("threat_intelligence", {}).get("virustotal", {})
-        if vt.get("configured") and vt.get("has_report"):
-            db_sources.append({
-                "title": "VirusTotal Multi-Engine Reputation",
-                "publisher": "VirusTotal / Google Chronicle",
-                "url": f"https://www.virustotal.com/gui/url/{VirusTotalService.get_url_id(target_url)}",
-                "summary": vt.get("summary", "")
-            })
-        # RDAP source
+        db_sources = [
+            {
+                "title": "Local Structural Analysis Engine",
+                "publisher": "ScamOrSafe Security",
+                "url": target_url,
+                "summary": "Protocol, pattern, keyword, and typosquatting heuristics."
+            }
+        ]
+
+        # RDAP source if available
         rdap_data = result.get("domain_intelligence", {})
         if rdap_data.get("domain_age"):
             db_sources.append({
@@ -120,7 +109,7 @@ def analyze_url():
 @url_bp.route("/url/check-reputation", methods=["POST"])
 def check_reputation():
     """
-    Fast reputation-only check (Google Safe Browsing & VirusTotal).
+    Fast local reputation & structural indicators check (zero external APIs).
     """
     raw_json = request.get_json(silent=True)
     if not raw_json:
@@ -134,16 +123,19 @@ def check_reputation():
     if not val.get("valid"):
         return jsonify(format_error_response(val.get("error", "Invalid URL format"), "URL_VALIDATION_ERROR")), 422
 
-    normalized_url = val.get("normalized_url", target_url)
-
-    gsb = safe_browsing_svc.check_url(normalized_url)
-    vt = virustotal_svc.get_url_report(normalized_url)
+    # Perform fast local analysis
+    domain_res = domain_analyzer.analyze(val)
 
     return jsonify(format_success_response({
         "url": target_url,
-        "normalized_url": normalized_url,
-        "google_safe_browsing": gsb,
-        "virustotal": vt
+        "normalized_url": val.get("normalized_url", target_url),
+        "protocol": val.get("scheme"),
+        "is_https": domain_res.get("is_https"),
+        "is_reputable": domain_res.get("is_reputable"),
+        "brand_impersonation": domain_res.get("brand_impersonation"),
+        "matched_keywords": domain_res.get("matched_keywords"),
+        "findings_count": domain_res.get("findings_count"),
+        "external_database_check": "unavailable"
     }))
 
 

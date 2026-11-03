@@ -5,7 +5,7 @@
 **Scam or Safe?** is an end-to-end cybersecurity awareness and threat intelligence platform designed to protect users against digital deception:
 1. 📩 **Scam Message Detection**: Detects banking fraud, UPI phishing, OTP theft, and social engineering using Groq (`llama-3.3-70b-versatile`), Google Gemini (`gemini-3.5-flash-lite`), Mistral AI, and a 13-category deterministic rule engine.
 2. 📰 **Fake News Verification Engine**: Multi-claim extraction, Google Fact Check Tools API integration, live web evidence search, and calibrated 5-tier verdicts (`SUPPORTED`, `CONTRADICTED`, `MIXED`, `UNVERIFIED`, `INSUFFICIENT EVIDENCE`).
-3. 🔗 **URL Safety & Threat Intelligence Engine (Day 5)**: High-speed detection of phishing URLs, lookalike typosquatting domains, brand impersonation, punycode/IDN attacks, direct IP hosts, Google Safe Browsing v4 threat detection, VirusTotal multi-engine reputation, IANA RDAP domain age calculation, and safe HTTP redirect tracing with strict SSRF & private IP defenses.
+3. 🔗 **Local URL Safety & Pattern Engine**: High-speed detection of phishing URLs, lookalike typosquatting domains, brand impersonation, punycode/IDN attacks, direct IP hosts, transport security checks (HTTPS vs HTTP), social engineering keywords (`login`, `verify`, `update`, `reward`, `claim`), IANA RDAP domain age calculation, and safe HTTP redirect tracing with strict SSRF & private IP defenses — **with zero external URL reputation API dependencies**.
 4. 🤖 **AI Model Comparison**: Side-by-side ensemble comparison of Groq, Gemini, and Mistral with consensus scoring and conflict analysis.
 5. 🔐 **Enterprise Security & Isolation**: Supabase Auth, PostgreSQL database, and Row Level Security (RLS) guaranteeing multi-tenant privacy.
 
@@ -19,7 +19,7 @@ Mini-Project/
 │   ├── app/
 │   │   ├── routes/              # API Endpoints (/api/url/*, /api/news/*, /api/analyze/scam, etc.)
 │   │   ├── services/
-│   │   │   ├── url_security/    # Safe Browsing, VirusTotal, RDAP, SSRF redirect tracing, domain analysis
+│   │   │   ├── url_security/    # Local domain analyzer, protocol inspector, RDAP, SSRF redirect tracing
 │   │   │   ├── ai_router.py     # Multi-model routing (Groq, Gemini, Mistral)
 │   │   │   ├── news_analyzer.py # Fact-checking & live evidence pipeline
 │   │   │   └── supabase_service.py # PostgreSQL scan persistence
@@ -52,7 +52,8 @@ Mini-Project/
 - **Node.js** 18+ and **npm**
 - **Python** 3.10+
 - Free **Supabase** account (for Auth & Database)
-- Optional API keys: Groq, Google Gemini, Google Safe Browsing, VirusTotal
+- Optional AI API keys: Groq or Google Gemini (for explanation generation)
+- **Zero URL API keys required**: No Google Safe Browsing or VirusTotal keys needed.
 
 ### 2. Backend Setup (Flask API)
 ```bash
@@ -92,11 +93,11 @@ npm run dev
 
 ---
 
-## 🔗 Day 5 URL Safety API Endpoints
+## 🔗 Local URL Safety API Endpoints
 
-- `GET /api/url/health` — Readiness status of Safe Browsing, VirusTotal, RDAP, and SSRF modules.
-- `POST /api/url/analyze` — Full URL inspection pipeline (domain heuristics, threat intelligence, RDAP, redirect hops, risk scoring, AI explanation).
-- `POST /api/url/check-reputation` — Rapid reputation lookup (Safe Browsing + VirusTotal).
+- `GET /api/url/health` — Readiness status of local inspection engine, RDAP, and SSRF modules.
+- `POST /api/url/analyze` — Full local inspection pipeline (protocol verification, domain heuristics, keywords, RDAP age, redirect hops, risk scoring, AI explanation).
+- `POST /api/url/check-reputation` — Rapid local reputation & structural check.
 - `GET /api/url/history` — Authenticated history of previous URL scans.
 - `POST /api/url/report` — User false-positive / false-negative reporting.
 
@@ -105,16 +106,17 @@ npm run dev
 ## 🧪 Testing Summary
 
 - **Backend Test Suite**: 48 tests passing (`python -m unittest discover backend/tests`)
-  - 20 URL Safety & Threat Intelligence tests (phishing, typosquatting, banking, SSRF, punycode, redirects, Safe Browsing, VirusTotal, etc.)
+  - 20 Local URL Safety & SSRF tests (protocol check, keywords, typosquatting, banking lures, SSRF defense, punycode, redirects, clean verification, zero API key requirement)
   - 14 Fake News & Evidence tests
   - 14 Scam Detection & Multi-Model routing tests
 - **Frontend & RLS Test Suite**: 18 tests passing (`npm test`)
-- **Total**: 66 automated tests across authentication, multi-tenant isolation, scam detection, news verification, and URL threat intelligence.
+- **Total**: 66 automated tests across authentication, multi-tenant isolation, scam detection, news verification, and local URL threat intelligence.
 
 ---
 
 ## 🛡️ Security
 - **Strict SSRF Defense**: All URL inspections resolve DNS and pre-flight check resolved IP addresses against private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`), link-local addresses, and cloud metadata (`169.254.169.254`, `metadata.google.internal`).
 - **No Client Execution**: Redirect analysis traces HTTP headers without executing scripts or downloading payloads.
-- **Zero Client Secrets**: All AI API keys and security intelligence tokens reside strictly on the backend.
+- **Zero Client Secrets**: All AI API keys reside strictly on the backend.
 - **Row Level Security**: Database queries enforce `auth.uid() = user_id` for multi-tenant isolation.
+- **Transparent Boundaries**: Clearly displays that external malware/phishing blacklist database checks are unavailable and never falsely claims a URL is 100% safe.

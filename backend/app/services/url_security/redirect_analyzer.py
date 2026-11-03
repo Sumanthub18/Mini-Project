@@ -174,3 +174,4 @@ class RedirectAnalyzer:
                 "Direct URL. No redirects detected."
             )
         }
+

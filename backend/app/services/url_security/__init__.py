@@ -1,9 +1,8 @@
 """
-URL Security Package.
+URL Security Package (Local Analysis Mode).
+Completely free of external URL reputation API dependencies.
 """
 from .url_validator import validate_url, is_safe_ip, resolve_hostname_safely
-from .safe_browsing_service import SafeBrowsingService
-from .virustotal_service import VirusTotalService
 from .domain_analyzer import DomainAnalyzer
 from .rdap_service import RDAPService
 from .redirect_analyzer import RedirectAnalyzer
@@ -14,8 +13,6 @@ __all__ = [
     "validate_url",
     "is_safe_ip",
     "resolve_hostname_safely",
-    "SafeBrowsingService",
-    "VirusTotalService",
     "DomainAnalyzer",
     "RDAPService",
     "RedirectAnalyzer",
