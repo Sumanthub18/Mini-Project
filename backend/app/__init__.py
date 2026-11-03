@@ -1,5 +1,5 @@
 """
-Flask application factory for Scam or Safe Day 3 backend.
+Flask application factory for Scam or Safe Day 3, Day 4 & Day 5 backend.
 """
 import os
 from flask import Flask, jsonify
@@ -20,10 +20,12 @@ def create_app() -> Flask:
     from .routes.scam_routes import scam_bp
     from .routes.comparison_routes import comparison_bp
     from .routes.news_routes import news_bp
+    from .routes.url_routes import url_bp
 
     app.register_blueprint(scam_bp, url_prefix="/api")
     app.register_blueprint(comparison_bp, url_prefix="/api")
     app.register_blueprint(news_bp, url_prefix="/api")
+    app.register_blueprint(url_bp, url_prefix="/api")
 
     # Global Error Handlers
     @app.errorhandler(404)
@@ -47,4 +49,3 @@ def create_app() -> Flask:
         }), 500
 
     return app
-

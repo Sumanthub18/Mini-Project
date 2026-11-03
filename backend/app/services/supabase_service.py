@@ -30,6 +30,7 @@ class SupabaseService:
         """
         Persists a scan record to Supabase PostgreSQL using REST API.
         Prefers the user's auth token to respect RLS policies.
+        Supports 'scam', 'news', and 'url' scan types.
         """
         if not self.is_configured():
             return {"saved": False, "reason": "Supabase URL is not configured."}
@@ -55,9 +56,10 @@ class SupabaseService:
         }
 
         # 1. Insert into public.scans
+        scan_type = scan_data.get("scan_type", "scam")
         payload = {
             "user_id": user_id,
-            "scan_type": "scam",
+            "scan_type": scan_type,
             "summary": scan_data.get("summary", "")[:1000],
             "risk_score": scan_data.get("risk_score"),
             "risk_level": scan_data.get("risk_level"),
@@ -78,17 +80,18 @@ class SupabaseService:
             scan_id = inserted_scans[0]["id"] if inserted_scans else None
 
             # 2. Insert scan_findings if scan_id present
-            findings = scan_data.get("risk_indicators", [])
+            findings = scan_data.get("risk_indicators") or scan_data.get("findings", [])
+            default_finding_type = f"{scan_type}_indicator"
             if scan_id and findings:
                 findings_payload = [
                     {
                         "scan_id": scan_id,
-                        "finding_type": "scam_indicator",
+                        "finding_type": f.get("type", default_finding_type),
                         "title": f.get("title", "Indicator")[:100],
-                        "description": f.get("explanation", f.get("phrase", ""))[:500],
+                        "description": (f.get("explanation") or f.get("description") or f.get("phrase", ""))[:500],
                         "severity": f.get("severity", "medium")
                     }
-                    for f in findings[:10]
+                    for f in findings[:15]
                 ]
                 requests.post(
                     f"{self.url}/rest/v1/scan_findings",
@@ -97,7 +100,26 @@ class SupabaseService:
                     timeout=8
                 )
 
+            # 3. Insert evidence_sources if present
+            sources = scan_data.get("evidence_sources", [])
+            if scan_id and sources:
+                sources_payload = [
+                    {
+                        "scan_id": scan_id,
+                        "title": s.get("title", "Security Evidence")[:200],
+                        "publisher": s.get("publisher", "Threat Intelligence")[:100],
+                        "source_url": s.get("source_url") or s.get("url", "")[:500],
+                        "evidence_summary": s.get("summary") or s.get("description", "")[:500]
+                    }
+                    for s in sources[:10]
+                ]
+                requests.post(
+                    f"{self.url}/rest/v1/evidence_sources",
+                    headers=headers,
+                    json=sources_payload,
+                    timeout=8
+                )
+
             return {"saved": True, "scan_id": scan_id}
         except Exception as e:
             return {"saved": False, "reason": str(e)}
-
