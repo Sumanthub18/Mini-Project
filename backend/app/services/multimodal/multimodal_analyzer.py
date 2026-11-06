@@ -353,3 +353,4 @@ class MultimodalAnalyzer:
             result["database_persistence"] = db_res
 
         return result
+

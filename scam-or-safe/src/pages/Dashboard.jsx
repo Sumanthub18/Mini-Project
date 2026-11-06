@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import {
   MessageSquareWarning, Newspaper, Link2, ArrowRight,
-  TrendingUp, ShieldCheck, AlertTriangle, Shield, RefreshCw, Cpu, Sparkles, Bot
+  TrendingUp, ShieldCheck, AlertTriangle, Shield, RefreshCw, Cpu,
+  Sparkles, Bot
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useScanHistory } from '../hooks/useScanHistory.jsx'
@@ -23,22 +25,35 @@ const QUICK_ACTIONS = [
     color: '#ff006e', bg: '#ff006e08', border: '#ff006e22', tag: '24/7 CYBER RESCUE CHAT',
   },
   {
-    to: '/scan/scam', icon: MessageSquareWarning, label: 'Scam Scanner',
-    color: '#ff006e', bg: '#ff006e08', border: '#ff006e22', tag: 'AI SCAM DETECTION',
+    to: '/scan/url', icon: Link2, label: 'URL Checker',
+    color: '#00d4ff', bg: '#00d4ff08', border: '#00d4ff22', tag: 'THREAT INTELLIGENCE',
   },
   {
-    to: '/scan/compare', icon: Cpu, label: 'AI Comparison',
-    color: '#00d4ff', bg: '#00d4ff08', border: '#00d4ff22', tag: 'GROQ / GEMINI / MISTRAL',
+    to: '/scan/scam', icon: MessageSquareWarning, label: 'Scam Scanner',
+    color: '#ffb800', bg: '#ffb80008', border: '#ffb80022', tag: 'AI SCAM DETECTION',
   },
   {
     to: '/scan/news', icon: Newspaper, label: 'Fake News',
     color: '#bf00ff', bg: '#bf00ff08', border: '#bf00ff22', tag: 'ARTICLES / CLAIMS',
   },
   {
-    to: '/scan/url', icon: Link2, label: 'URL Checker',
-    color: '#00ff9f', bg: '#00ff9f08', border: '#00ff9f22', tag: 'LINKS / PHISHING',
+    to: '/scan/compare', icon: Cpu, label: 'AI Comparison',
+    color: '#00d4ff', bg: '#00d4ff08', border: '#00d4ff22', tag: 'GROQ / GEMINI / MISTRAL',
   },
 ]
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+}
 
 export default function Dashboard() {
   const { user, isConfigured } = useAuth()
@@ -144,24 +159,32 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="max-w-6xl mx-auto animate-slide-up">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="max-w-6xl mx-auto"
+    >
       <div className="flex items-start justify-between mb-2 flex-wrap gap-4">
         <SectionHeader
           title="DASHBOARD"
           subtitle="// system status — real-time threat intelligence overview"
         />
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => { refreshHistory(); loadStats() }}
           disabled={loading}
-          className="btn-neon px-3 py-2 text-xs font-mono tracking-widest flex items-center gap-2"
+          className="btn-neon px-3 py-2 text-xs font-mono tracking-widest flex items-center gap-2 cursor-pointer"
           style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> REFRESH STATS
-        </button>
+        </motion.button>
       </div>
 
       {/* Backend connection banner */}
-      <div
+      <motion.div
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
         className="mb-6 px-4 py-3 text-xs flex items-center justify-between gap-2 font-mono flex-wrap"
         style={{
           background: isConfigured ? '#00ff9f08' : '#00d4ff08',
@@ -193,70 +216,88 @@ export default function Dashboard() {
         <span className="text-xs" style={{ color: '#4a6080' }}>
           USER: {user?.email || 'authenticated'}
         </span>
-      </div>
+      </motion.div>
 
-      {/* Quick action cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      {/* Quick action cards with animated stagger */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"
+      >
         {QUICK_ACTIONS.map(a => (
-          <Link
+          <motion.div
             key={a.to}
-            to={a.to}
-            className="card-hover p-5 flex items-center gap-4 group relative"
-            style={{
-              background: a.bg,
-              border: `1px solid ${a.border}`,
-              clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)',
-              boxShadow: `0 0 20px ${a.color}08`,
-            }}
+            variants={itemVariants}
+            whileHover={{ scale: 1.02, y: -3 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <div
-              className="w-12 h-12 flex items-center justify-center flex-shrink-0"
+            <Link
+              to={a.to}
+              className="p-5 flex items-center gap-4 group relative h-full block"
               style={{
-                background: a.color + '12',
-                border: `1px solid ${a.color}33`,
-                clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                background: a.bg,
+                border: `1px solid ${a.border}`,
+                clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)',
+                boxShadow: `0 0 20px ${a.color}08`,
               }}
             >
-              <a.icon size={22} style={{ color: a.color, filter: `drop-shadow(0 0 4px ${a.color})` }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-sm tracking-wide mb-1" style={{ color: a.color, textShadow: `0 0 8px ${a.color}44`, fontSize: '0.75rem' }}>
-                {a.label}
-              </p>
-              <p className="text-xs font-mono" style={{ color: '#4a6080', letterSpacing: '0.06em' }}>{a.tag}</p>
-              <p className="text-xs mt-1 font-mono" style={{ color: a.color + '88' }}>[ SCAN → ]</p>
-            </div>
-          </Link>
+              <div
+                className="w-12 h-12 flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: a.color + '12',
+                  border: `1px solid ${a.color}33`,
+                  clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                }}
+              >
+                <a.icon size={22} style={{ color: a.color, filter: `drop-shadow(0 0 4px ${a.color})` }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-display font-bold text-sm tracking-wide mb-1" style={{ color: a.color, textShadow: `0 0 8px ${a.color}44`, fontSize: '0.8rem' }}>
+                  {a.label}
+                </p>
+                <p className="text-xs font-mono" style={{ color: '#4a6080', letterSpacing: '0.06em' }}>{a.tag}</p>
+                <p className="text-xs mt-1 font-mono" style={{ color: a.color + '88' }}>[ SCAN → ]</p>
+              </div>
+            </Link>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      {/* Real Statistics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      {/* Real Statistics Grid with Stagger */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6"
+      >
         {STAT_CARDS.map(s => (
-          <Card key={s.label}>
-            <div className="flex flex-col justify-between h-full">
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-xs font-mono tracking-wider truncate" style={{ color: '#4a6080' }}>
-                  {s.label.toUpperCase()}
-                </span>
-                <s.icon size={15} style={{ color: s.color, filter: `drop-shadow(0 0 4px ${s.color})` }} />
+          <motion.div key={s.label} variants={itemVariants}>
+            <Card hoverEffect>
+              <div className="flex flex-col justify-between h-full">
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-mono tracking-wider truncate" style={{ color: '#4a6080' }}>
+                    {s.label.toUpperCase()}
+                  </span>
+                  <s.icon size={15} style={{ color: s.color, filter: `drop-shadow(0 0 4px ${s.color})` }} />
+                </div>
+                <div>
+                  <p className="font-display font-black text-2xl lg:text-3xl" style={{ color: s.color, textShadow: `0 0 14px ${s.color}66` }}>
+                    {s.value}
+                  </p>
+                  <p className="text-xs mt-1 font-mono text-slate-500 truncate" style={{ fontSize: '0.65rem' }}>
+                    // {s.note}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-display font-black text-2xl lg:text-3xl" style={{ color: s.color, textShadow: `0 0 14px ${s.color}66` }}>
-                  {s.value}
-                </p>
-                <p className="text-xs mt-1 font-mono text-slate-500 truncate" style={{ fontSize: '0.65rem' }}>
-                  // {s.note}
-                </p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Real Scan Distribution Chart */}
-        <Card>
+        <Card hoverEffect>
           <div className="flex items-center gap-2 mb-4">
             <span style={{ width: 2, height: 16, background: '#bf00ff', display: 'block', boxShadow: '0 0 8px #bf00ff' }} />
             <h2 className="font-display font-bold text-sm tracking-widest" style={{ color: '#e2e8f0', letterSpacing: '0.12em' }}>
@@ -311,7 +352,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Real Recent scans */}
-        <Card>
+        <Card hoverEffect>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span style={{ width: 2, height: 16, background: '#00ff9f', display: 'block', boxShadow: '0 0 8px #00ff9f' }} />
@@ -338,9 +379,12 @@ export default function Dashboard() {
             />
           ) : (
             <ul className="flex flex-col gap-2">
-              {recent.map(scan => (
-                <li
+              {recent.map((scan, sIdx) => (
+                <motion.li
                   key={scan.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: sIdx * 0.04 }}
                   className="flex items-center gap-3 px-3 py-2.5"
                   style={{
                     background: '#050810',
@@ -369,12 +413,12 @@ export default function Dashboard() {
                   >
                     {scan.result?.level || 'N/A'}
                   </span>
-                </li>
+                </motion.li>
               ))}
             </ul>
           )}
         </Card>
       </div>
-    </div>
+    </motion.div>
   )
 }

@@ -134,3 +134,4 @@ DROP POLICY IF EXISTS "Users can delete own multimodal analyses" ON public.multi
 CREATE POLICY "Users can delete own multimodal analyses"
   ON public.multimodal_analyses FOR DELETE
   USING (auth.uid() = user_id);
+

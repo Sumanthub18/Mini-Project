@@ -1,6 +1,7 @@
+import { motion } from 'framer-motion'
 import { riskColor, riskBg, riskBorder } from '../utils/helpers.js'
 
-/** Circular risk gauge SVG — neon cyberpunk style */
+/** Circular risk gauge SVG — neon cyberpunk style with Framer Motion */
 export function RiskGauge({ score = 0, level = 'LOW' }) {
   const radius = 40
   const circumference = 2 * Math.PI * radius
@@ -8,30 +9,38 @@ export function RiskGauge({ score = 0, level = 'LOW' }) {
   const color = riskColor(level)
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ filter: `drop-shadow(0 0 8px ${color}88)` }}>
+    <motion.div
+      initial={{ scale: 0.85, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+      className="flex flex-col items-center gap-2"
+    >
+      <div className="relative" style={{ filter: `drop-shadow(0 0 10px ${color}88)` }}>
         <svg width="110" height="110" viewBox="0 0 110 110" aria-label={`Risk score: ${score} out of 100`}>
           {/* Outer ring */}
-          <circle cx="55" cy="55" r="48" fill="none" stroke={color + '11'} strokeWidth="1" />
+          <circle cx="55" cy="55" r="48" fill="none" stroke={color + '15'} strokeWidth="1" />
           {/* Track */}
           <circle cx="55" cy="55" r={radius} fill="none" stroke="#0f2040" strokeWidth="10" />
-          {/* Fill */}
-          <circle
+          {/* Fill with smooth SVG stroke animation */}
+          <motion.circle
             cx="55" cy="55" r={radius}
             fill="none"
             stroke={color}
             strokeWidth="10"
             strokeLinecap="butt"
             strokeDasharray={circumference}
-            strokeDashoffset={offset}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 0.9, ease: 'easeOut' }}
             transform="rotate(-90 55 55)"
-            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
           />
           {/* Inner ring accent */}
-          <circle cx="55" cy="55" r="28" fill="none" stroke={color + '15'} strokeWidth="1" strokeDasharray="4 4" />
+          <circle cx="55" cy="55" r="28" fill="none" stroke={color + '20'} strokeWidth="1" strokeDasharray="4 4" />
           {/* Score text */}
-          <text x="55" y="51" textAnchor="middle" fill={color} fontSize="22" fontWeight="800" fontFamily="Orbitron,monospace"
-            style={{ filter: `drop-shadow(0 0 4px ${color})` }}>
+          <text
+            x="55" y="51" textAnchor="middle" fill={color} fontSize="22" fontWeight="800" fontFamily="Orbitron,monospace"
+            style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+          >
             {score}
           </text>
           <text x="55" y="66" textAnchor="middle" fill="#4a6080" fontSize="9" fontFamily="Share Tech Mono,monospace" letterSpacing="1">
@@ -40,7 +49,7 @@ export function RiskGauge({ score = 0, level = 'LOW' }) {
         </svg>
       </div>
       <RiskBadge level={level} />
-    </div>
+    </motion.div>
   )
 }
 
@@ -52,7 +61,10 @@ export function RiskBadge({ level }) {
   const label = level === 'HIGH' ? '▲ HIGH RISK' : level === 'MEDIUM' ? '◆ MEDIUM' : '▼ LOW RISK'
 
   return (
-    <span
+    <motion.span
+      initial={{ opacity: 0, y: 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
       className="inline-flex items-center px-3 py-1 text-xs font-bold tracking-widest"
       style={{
         color,
@@ -64,14 +76,16 @@ export function RiskBadge({ level }) {
       }}
     >
       {label}
-    </span>
+    </motion.span>
   )
 }
 
 /** Demo result disclaimer banner */
 export function DemoBanner() {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
       className="flex items-start gap-3 px-4 py-3 text-sm relative"
       style={{
         background: '#00d4ff08',
@@ -87,7 +101,7 @@ export function DemoBanner() {
         <strong style={{ color: '#00d4ff', textShadow: '0 0 8px #00d4ff88' }}>[ DEMO RESULT ]</strong>
         {' '}— Analysis based on local pattern matching. No real AI or external API was used.
       </span>
-    </div>
+    </motion.div>
   )
 }
 
@@ -98,7 +112,10 @@ export function ResultSummary({ result }) {
   const border = riskBorder(result.level)
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
       className="px-5 py-4"
       style={{
         background: bg,
@@ -108,7 +125,7 @@ export function ResultSummary({ result }) {
       }}
     >
       <p className="text-sm leading-relaxed" style={{ color: '#e2e8f0' }}>{result.summary}</p>
-    </div>
+    </motion.div>
   )
 }
 
@@ -116,7 +133,9 @@ export function ResultSummary({ result }) {
 export function WarningList({ warnings }) {
   if (!warnings || warnings.length === 0) {
     return (
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         className="flex items-center gap-2 text-sm px-4 py-3"
         style={{
           background: '#00ff9f08',
@@ -127,14 +146,17 @@ export function WarningList({ warnings }) {
         }}
       >
         <span>✓</span> No warning signs detected.
-      </div>
+      </motion.div>
     )
   }
   return (
     <ul className="flex flex-col gap-2" role="list">
       {warnings.map((w, i) => (
-        <li
+        <motion.li
           key={i}
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.05, duration: 0.25 }}
           className="flex items-start gap-3 px-4 py-3"
           style={{
             background: '#ff006e08',
@@ -151,7 +173,7 @@ export function WarningList({ warnings }) {
             )}
             <p className="text-sm" style={{ color: '#94a3b8' }}>{w.reason}</p>
           </div>
-        </li>
+        </motion.li>
       ))}
     </ul>
   )
@@ -163,8 +185,11 @@ export function RecommendationList({ recommendations }) {
   return (
     <ul className="flex flex-col gap-2" role="list">
       {recommendations.map((r, i) => (
-        <li
+        <motion.li
           key={i}
+          initial={{ opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.05, duration: 0.25 }}
           className="flex items-start gap-3 text-sm px-4 py-3"
           style={{
             background: '#00ff9f06',
@@ -175,7 +200,7 @@ export function RecommendationList({ recommendations }) {
         >
           <span className="flex-shrink-0 font-mono" style={{ color: '#00ff9f', textShadow: '0 0 6px #00ff9f' }}>→</span>
           <span>{r}</span>
-        </li>
+        </motion.li>
       ))}
     </ul>
   )
@@ -201,31 +226,46 @@ export function Spinner({ size = 24, color = '#00ff9f' }) {
 }
 
 /** Section header — HUD style */
-export function SectionHeader({ title, subtitle }) {
+export function SectionHeader({ title, subtitle, icon: Icon, badge }) {
   return (
-    <div className="mb-7">
-      <div className="flex items-center gap-3 mb-2">
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="mb-7"
+    >
+      <div className="flex flex-wrap items-center gap-3 mb-2">
         <div style={{ width: 3, height: 28, background: 'linear-gradient(180deg, #00ff9f, #00d4ff)', boxShadow: '0 0 8px #00ff9f' }} />
+        {Icon && <Icon size={24} className="text-emerald-400" />}
         <h1
           className="font-display font-bold text-2xl md:text-3xl tracking-wide"
           style={{ color: '#00ff9f', textShadow: '0 0 20px #00ff9f44', letterSpacing: '0.08em' }}
         >
           {title}
         </h1>
+        {badge && (
+          <span className="font-mono text-[10px] px-2.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+            {badge}
+          </span>
+        )}
       </div>
       {subtitle && (
         <p className="mt-1 text-sm font-mono pl-6" style={{ color: '#4a6080', letterSpacing: '0.04em' }}>
           {subtitle}
         </p>
       )}
-    </div>
+    </motion.div>
   )
 }
 
 /** Card wrapper — cyberpunk */
-export function Card({ children, className = '', style = {} }) {
+export function Card({ children, className = '', style = {}, hoverEffect = false }) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      whileHover={hoverEffect ? { y: -2, boxShadow: '0 8px 30px rgba(0, 255, 159, 0.12)' } : undefined}
       className={`p-5 relative ${className}`}
       style={{
         background: 'linear-gradient(135deg, #0d1424 0%, #090d1a 100%)',
@@ -255,14 +295,18 @@ export function Card({ children, className = '', style = {} }) {
         }}
       />
       {children}
-    </div>
+    </motion.div>
   )
 }
 
 /** Empty state */
 export function EmptyState({ icon = '📭', title, description }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center py-16 text-center gap-4"
+    >
       <div
         className="w-20 h-20 flex items-center justify-center"
         style={{
@@ -277,6 +321,6 @@ export function EmptyState({ icon = '📭', title, description }) {
         <h3 className="font-display font-bold text-base mb-2" style={{ color: '#e2e8f0', letterSpacing: '0.08em' }}>{title}</h3>
         <p className="text-sm max-w-xs font-mono" style={{ color: '#4a6080', letterSpacing: '0.04em' }}>{description}</p>
       </div>
-    </div>
+    </motion.div>
   )
 }

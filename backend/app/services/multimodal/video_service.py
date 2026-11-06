@@ -147,3 +147,4 @@ class VideoService:
                 "A dedicated biometric forensic laboratory model is required for certified deepfake verification."
             )
         }
+

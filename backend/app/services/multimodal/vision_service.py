@@ -240,3 +240,4 @@ class VisionService:
             },
             "summary": "Image inspected for visual and structural threat indicators."
         }
+

@@ -149,3 +149,4 @@ class TranscriptionService:
                 "language": "en",
                 "error": f"Transcription error: {str(e)}"
             }
+

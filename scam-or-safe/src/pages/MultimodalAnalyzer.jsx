@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText, Image as ImageIcon, Mic, Video, Sparkles,
   QrCode, ExternalLink, AlertTriangle, ShieldCheck,
@@ -166,7 +167,7 @@ export default function MultimodalAnalyzer() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-6xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <SectionHeader
@@ -177,7 +178,11 @@ export default function MultimodalAnalyzer() {
         />
 
         {/* Regional Language Selector */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80 shadow-sm"
+        >
           <Globe size={15} className="text-emerald-400" />
           <span className="font-mono text-xs text-slate-400">Target Language:</span>
           <select
@@ -189,11 +194,11 @@ export default function MultimodalAnalyzer() {
             <option value="kn" className="bg-slate-900 text-slate-200">ಕನ್ನಡ (Kannada)</option>
             <option value="hi" className="bg-slate-900 text-slate-200">हिंदी (Hindi)</option>
           </select>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Media Type Tabs */}
-      <div className="flex flex-wrap gap-2 p-1.5 rounded-xl border border-slate-800 bg-slate-950/60 backdrop-blur-md">
+      {/* Media Type Tabs with Animated Pill Slider */}
+      <div className="flex flex-wrap gap-2 p-1.5 rounded-xl border border-slate-800 bg-slate-950/60 backdrop-blur-md relative">
         {[
           { id: 'text', label: 'Text Messages', icon: FileText, desc: 'SMS, WhatsApp, Email, UPI' },
           { id: 'image', label: 'Images & QR Codes', icon: ImageIcon, desc: 'Screenshots, Slips, QR' },
@@ -205,14 +210,19 @@ export default function MultimodalAnalyzer() {
             <button
               key={id}
               onClick={() => handleTabChange(id)}
-              className={`flex-1 min-w-[140px] px-4 py-3 rounded-lg text-left transition-all flex items-center gap-3 ${
-                isActive
-                  ? 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 shadow-lg shadow-emerald-500/5'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 border border-transparent'
+              className={`relative flex-1 min-w-[140px] px-4 py-3 rounded-lg text-left transition-colors flex items-center gap-3 cursor-pointer ${
+                isActive ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Icon size={18} className={isActive ? 'text-emerald-400' : 'text-slate-500'} />
-              <div>
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabPill"
+                  className="absolute inset-0 bg-emerald-500/10 border border-emerald-500/40 rounded-lg shadow-lg shadow-emerald-500/5 -z-0"
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                />
+              )}
+              <Icon size={18} className={`relative z-10 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+              <div className="relative z-10">
                 <div className="font-display text-xs font-bold tracking-wider">{label}</div>
                 <div className="font-mono text-[10px] text-slate-500 hidden sm:block">{desc}</div>
               </div>
@@ -222,7 +232,7 @@ export default function MultimodalAnalyzer() {
       </div>
 
       {/* Input Section */}
-      <Card>
+      <Card hoverEffect>
         {activeTab === 'text' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -249,17 +259,19 @@ export default function MultimodalAnalyzer() {
               </span>
               <div className="flex flex-wrap gap-2">
                 {SAMPLE_TEXTS.map((s, idx) => (
-                  <button
+                  <motion.button
                     key={idx}
                     type="button"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => {
                       setTextContent(s.text)
                       setTargetLanguage(s.lang)
                     }}
-                    className="px-2.5 py-1 rounded text-[11px] font-mono border border-slate-800 bg-slate-900/40 text-slate-300 hover:border-emerald-500/40 hover:text-emerald-300 transition-colors"
+                    className="px-2.5 py-1 rounded text-[11px] font-mono border border-slate-800 bg-slate-900/40 text-slate-300 hover:border-emerald-500/40 hover:text-emerald-300 transition-colors cursor-pointer"
                   >
                     {s.label}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -273,11 +285,13 @@ export default function MultimodalAnalyzer() {
             </label>
 
             {!selectedFile ? (
-              <div
+              <motion.div
+                whileHover={{ scale: 1.01, borderColor: 'rgba(0, 255, 159, 0.4)' }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-slate-800 hover:border-emerald-500/50 rounded-xl p-8 text-center cursor-pointer transition-all bg-slate-950/40 hover:bg-slate-900/30 flex flex-col items-center gap-3"
               >
-                <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400">
+                <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shadow-sm">
                   <Upload size={22} />
                 </div>
                 <div>
@@ -290,9 +304,13 @@ export default function MultimodalAnalyzer() {
                     {activeTab === 'video' && 'Supports MP4 container format (Max 40MB)'}
                   </p>
                 </div>
-              </div>
+              </motion.div>
             ) : (
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 flex flex-col md:flex-row items-center justify-between gap-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-4 rounded-xl border border-slate-800 bg-slate-950 flex flex-col md:flex-row items-center justify-between gap-4"
+              >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
                     {activeTab === 'image' && <ImageIcon size={20} />}
@@ -310,24 +328,26 @@ export default function MultimodalAnalyzer() {
                 {/* Previews */}
                 <div className="flex items-center gap-3">
                   {activeTab === 'image' && filePreviewUrl && (
-                    <img src={filePreviewUrl} alt="Preview" className="h-16 w-16 object-cover rounded border border-slate-700" />
+                    <img src={filePreviewUrl} alt="Preview" className="h-16 w-16 object-cover rounded border border-slate-700 shadow-md" />
                   )}
                   {activeTab === 'audio' && filePreviewUrl && (
                     <audio controls src={filePreviewUrl} className="h-8 max-w-[200px]" />
                   )}
                   {activeTab === 'video' && filePreviewUrl && (
-                    <video src={filePreviewUrl} className="h-16 w-24 object-cover rounded border border-slate-700" />
+                    <video src={filePreviewUrl} className="h-16 w-24 object-cover rounded border border-slate-700 shadow-md" />
                   )}
 
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
                     onClick={handleRemoveFile}
-                    className="p-1.5 rounded hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition-colors"
+                    className="p-1.5 rounded hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
                     title="Remove file"
                   >
                     <X size={16} />
-                  </button>
+                  </motion.button>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             <input
@@ -347,12 +367,19 @@ export default function MultimodalAnalyzer() {
         )}
 
         {/* Error message */}
-        {error && (
-          <div className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 font-mono text-xs flex items-center gap-2">
-            <AlertTriangle size={15} />
-            <span>{error}</span>
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 font-mono text-xs flex items-center gap-2"
+            >
+              <AlertTriangle size={15} />
+              <span>{error}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Action Button */}
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
@@ -361,10 +388,12 @@ export default function MultimodalAnalyzer() {
             <span>Multi-Model AI Consensus Engine (Gemini + Groq + Mistral)</span>
           </div>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleRunAnalysis}
             disabled={loading}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-mono text-xs font-bold tracking-wider bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-mono text-xs font-bold tracking-wider bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading ? (
               <>
@@ -377,255 +406,308 @@ export default function MultimodalAnalyzer() {
                 <span>RUN MULTIMODAL AUDIT</span>
               </>
             )}
-          </button>
+          </motion.button>
         </div>
 
-        {/* Live Loading Step Indicator */}
-        {loading && scanStep && (
-          <div className="mt-4 p-3 rounded-lg bg-slate-900 border border-emerald-500/20 font-mono text-xs text-emerald-400 flex items-center gap-3 animate-pulse">
-            <RefreshCw size={14} className="animate-spin" />
-            <span>{scanStep}</span>
-          </div>
-        )}
+        {/* Live Loading Step Indicator with Motion Pulse */}
+        <AnimatePresence>
+          {loading && scanStep && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-4 p-3 rounded-lg bg-slate-900 border border-emerald-500/20 font-mono text-xs text-emerald-400 flex items-center gap-3 animate-pulse"
+            >
+              <RefreshCw size={14} className="animate-spin" />
+              <span>{scanStep}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
 
-      {/* Analysis Results View */}
-      {result && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Executive Verdict Banner */}
-          <Card>
-            <div className="flex flex-col lg:flex-row items-center gap-6 justify-between">
-              <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-                <RiskGauge
-                  score={result.risk_score || 0}
-                  level={(result.risk_level || 'low').toUpperCase()}
-                />
-                <div className="space-y-1">
-                  <div className="flex items-center justify-center sm:justify-start gap-2">
-                    <RiskBadge level={(result.risk_level || 'low').toUpperCase()} />
-                    <span className="font-mono text-xs text-slate-400">
-                      MEDIA TYPE: <strong className="text-slate-200 uppercase">{result.media_type}</strong>
-                    </span>
-                  </div>
-                  <h3 className="font-display text-lg font-bold text-slate-100">
-                    {result.localization?.localized_alert || 'Threat Assessment Completed'}
-                  </h3>
-                  <p className="font-mono text-xs text-slate-300 max-w-xl">
-                    {result.summary}
-                  </p>
-                </div>
-              </div>
-
-              {/* Language Tag */}
-              <div className="flex flex-col items-end gap-1.5 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <span className="font-mono text-[10px] text-slate-500 uppercase">Language Intelligence</span>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="font-mono text-xs text-emerald-300 font-bold">
-                    {result.detected_language?.display_name || 'English'}
-                  </span>
-                </div>
-                {result.detected_language?.is_mixed && (
-                  <span className="font-mono text-[10px] text-amber-400">
-                    Code-mixed dialect detected
-                  </span>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* QR Code Inspection Module (If Detected) */}
-          {result.qr_codes_detected && result.qr_codes_detected.length > 0 && (
-            <Card>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-400">
-                    <QrCode size={18} />
-                    <span className="font-display text-sm font-bold tracking-wider">
-                      QR CODE DETECTED IN MEDIA
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                    NEVER AUTO-OPENED
-                  </span>
-                </div>
-
-                {result.qr_codes_detected.map((qr, qidx) => (
-                  <div key={qidx} className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="font-mono text-xs text-slate-300 break-all">
-                        <span className="text-slate-500">Destination: </span>
-                        <code className="text-emerald-400 bg-slate-900 px-2 py-0.5 rounded">
-                          {qr.raw_destination}
-                        </code>
-                      </div>
-                      {qr.raw_destination?.startsWith('http') && (
-                        <button
-                          onClick={() => navigate('/scan/url', { state: { initialUrl: qr.raw_destination } })}
-                          className="px-3 py-1.5 rounded text-xs font-mono bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 transition-colors self-start sm:self-auto"
-                        >
-                          <span>Analyze in URL Checker</span>
-                          <ExternalLink size={13} />
-                        </button>
-                      )}
+      {/* Analysis Results View with AnimatePresence */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            key="analysis-results"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-6"
+          >
+            {/* Executive Verdict Banner */}
+            <Card hoverEffect>
+              <div className="flex flex-col lg:flex-row items-center gap-6 justify-between">
+                <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+                  <RiskGauge
+                    score={result.risk_score || 0}
+                    level={(result.risk_level || 'low').toUpperCase()}
+                  />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <RiskBadge level={(result.risk_level || 'low').toUpperCase()} />
+                      <span className="font-mono text-xs text-slate-400">
+                        MEDIA TYPE: <strong className="text-slate-200 uppercase">{result.media_type}</strong>
+                      </span>
                     </div>
-                    <p className="font-mono text-[11px] text-slate-500">
-                      🛡️ {qr.safety_disclaimer}
+                    <h3 className="font-display text-lg font-bold text-slate-100">
+                      {result.localization?.localized_alert || 'Threat Assessment Completed'}
+                    </h3>
+                    <p className="font-mono text-xs text-slate-300 max-w-xl">
+                      {result.summary}
                     </p>
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Multi-Model AI Consensus Engine Breakdown */}
-          {result.consensus && (
-            <Card>
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <Cpu size={18} className="text-cyan-400" />
-                    <span className="font-display text-sm font-bold text-slate-100">
-                      Multi-Model Consensus Breakdown
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-slate-400">Agreement Metric:</span>
-                    <span className="px-2.5 py-0.5 rounded font-mono text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                      {result.consensus.agreement_percentage}% ({result.consensus.consensus_status})
-                    </span>
-                  </div>
                 </div>
 
-                {/* Individual Model Votes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {Object.entries(result.consensus.model_votes || {}).map(([key, v]) => (
-                    <div key={key} className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[11px] text-slate-400 uppercase font-bold">
-                          {key === 'gemini' ? 'Google Gemini' : key === 'groq' ? 'Groq LLaMA' : key === 'mistral' ? 'Mistral AI' : 'Rule Engine'}
-                        </span>
-                        <span
-                          className="font-mono text-xs font-bold"
-                          style={{ color: riskColor((v.risk_level || 'low').toUpperCase()) }}
-                        >
-                          {v.risk_score}/100
+                {/* Language Tag */}
+                <div className="flex flex-col items-end gap-1.5 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                  <span className="font-mono text-[10px] text-slate-500 uppercase">Language Intelligence</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span className="font-mono text-xs text-emerald-300 font-bold">
+                      {result.detected_language?.display_name || 'English'}
+                    </span>
+                  </div>
+                  {result.detected_language?.is_mixed && (
+                    <span className="font-mono text-[10px] text-amber-400">
+                      Code-mixed dialect detected
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {/* QR Code Inspection Module (If Detected) */}
+            {result.qr_codes_detected && result.qr_codes_detected.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Card hoverEffect>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-400">
+                        <QrCode size={18} />
+                        <span className="font-display text-sm font-bold tracking-wider">
+                          QR CODE DETECTED IN MEDIA
                         </span>
                       </div>
-                      <p className="font-mono text-[10px] text-slate-500 truncate">
-                        {v.scam_category || 'Evaluated'}
-                      </p>
-                      <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${v.risk_score || 0}%`,
-                            background: riskColor((v.risk_level || 'low').toUpperCase())
-                          }}
-                        />
-                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        NEVER AUTO-OPENED
+                      </span>
                     </div>
-                  ))}
-                </div>
 
-                {/* Consensus Agreements & Discrepancies */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-2">
-                    <span className="font-mono text-xs text-slate-400 font-bold flex items-center gap-1.5">
-                      <CheckCircle2 size={14} className="text-emerald-400" /> Points of Agreement:
-                    </span>
-                    <ul className="space-y-1 font-mono text-xs text-slate-300">
-                      {(result.consensus.agreements || []).map((ag, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <span className="text-emerald-400">•</span>
-                          <span>{ag}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {result.qr_codes_detected.map((qr, qidx) => (
+                      <div key={qidx} className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="font-mono text-xs text-slate-300 break-all">
+                            <span className="text-slate-500">Destination: </span>
+                            <code className="text-emerald-400 bg-slate-900 px-2 py-0.5 rounded">
+                              {qr.raw_destination}
+                            </code>
+                          </div>
+                          {qr.raw_destination?.startsWith('http') && (
+                            <motion.button
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={() => navigate('/scan/url', { state: { initialUrl: qr.raw_destination } })}
+                              className="px-3 py-1.5 rounded text-xs font-mono bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer"
+                            >
+                              <span>Analyze in URL Checker</span>
+                              <ExternalLink size={13} />
+                            </motion.button>
+                          )}
+                        </div>
+                        <p className="font-mono text-[11px] text-slate-500">
+                          🛡️ {qr.safety_disclaimer}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Multi-Model AI Consensus Engine Breakdown */}
+            {result.consensus && (
+              <Card hoverEffect>
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Cpu size={18} className="text-cyan-400" />
+                      <span className="font-display text-sm font-bold text-slate-100">
+                        Multi-Model Consensus Breakdown
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-slate-400">Agreement Metric:</span>
+                      <span className="px-2.5 py-0.5 rounded font-mono text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                        {result.consensus.agreement_percentage}% ({result.consensus.consensus_status})
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <span className="font-mono text-xs text-slate-400 font-bold flex items-center gap-1.5">
-                      <Info size={14} className="text-cyan-400" /> Epistemic & Evidence Limitations:
-                    </span>
-                    <ul className="space-y-1 font-mono text-xs text-slate-400">
-                      {(result.consensus.missing_evidence || []).map((me, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <span className="text-cyan-400">•</span>
-                          <span>{me}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  {/* Individual Model Votes with animated progress bars */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {Object.entries(result.consensus.model_votes || {}).map(([key, v], vIdx) => (
+                      <motion.div
+                        key={key}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: vIdx * 0.05 }}
+                        className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[11px] text-slate-400 uppercase font-bold">
+                            {key === 'gemini' ? 'Google Gemini' : key === 'groq' ? 'Groq LLaMA' : key === 'mistral' ? 'Mistral AI' : 'Rule Engine'}
+                          </span>
+                          <span
+                            className="font-mono text-xs font-bold"
+                            style={{ color: riskColor((v.risk_level || 'low').toUpperCase()) }}
+                          >
+                            {v.risk_score}/100
+                          </span>
+                        </div>
+                        <p className="font-mono text-[10px] text-slate-500 truncate">
+                          {v.scam_category || 'Evaluated'}
+                        </p>
+                        <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${v.risk_score || 0}%` }}
+                            transition={{ duration: 0.8, delay: 0.2 }}
+                            style={{
+                              background: riskColor((v.risk_level || 'low').toUpperCase())
+                            }}
+                          />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Consensus Agreements & Discrepancies */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <span className="font-mono text-xs text-slate-400 font-bold flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className="text-emerald-400" /> Points of Agreement:
+                      </span>
+                      <ul className="space-y-1 font-mono text-xs text-slate-300">
+                        {(result.consensus.agreements || []).map((ag, i) => (
+                          <motion.li
+                            key={i}
+                            initial={{ opacity: 0, x: -6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.04 }}
+                            className="flex items-start gap-1.5"
+                          >
+                            <span className="text-emerald-400">•</span>
+                            <span>{ag}</span>
+                          </motion.li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="font-mono text-xs text-slate-400 font-bold flex items-center gap-1.5">
+                        <Info size={14} className="text-cyan-400" /> Epistemic & Evidence Limitations:
+                      </span>
+                      <ul className="space-y-1 font-mono text-xs text-slate-400">
+                        {(result.consensus.missing_evidence || []).map((me, i) => (
+                          <motion.li
+                            key={i}
+                            initial={{ opacity: 0, x: -6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.04 }}
+                            className="flex items-start gap-1.5"
+                          >
+                            <span className="text-cyan-400">•</span>
+                            <span>{me}</span>
+                          </motion.li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-slate-900/40 border border-slate-800 text-[10px] font-mono text-slate-500">
+                    ⚖️ {result.consensus.disclaimer}
                   </div>
                 </div>
+              </Card>
+            )}
 
-                <div className="p-2.5 rounded bg-slate-900/40 border border-slate-800 text-[10px] font-mono text-slate-500">
-                  ⚖️ {result.consensus.disclaimer}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Extracted Content & Original Verbatim Text */}
-          <Card>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-slate-300 flex items-center gap-2">
-                  <FileText size={15} className="text-emerald-400" />
-                  VERBATIM EXTRACTED CONTENT (OCR / TRANSCRIPT)
-                </span>
-                <span className="font-mono text-[10px] text-slate-500">
-                  Preserved verbatim
-                </span>
-              </div>
-              <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200 whitespace-pre-wrap max-h-60 overflow-y-auto">
-                {result.extracted_text || result.transcript || result.content || 'No text extracted.'}
-              </div>
-            </div>
-          </Card>
-
-          {/* Video Deepfake Disclaimer (If Video Analyzed) */}
-          {result.media_type === 'video' && result.forensic_disclaimer && (
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-300 font-mono text-xs">
-              <AlertOctagon size={20} className="flex-shrink-0 text-amber-400 mt-0.5" />
-              <div>
-                <strong className="block text-amber-200 font-bold mb-1">
-                  FORENSIC DEEPFAKE ANALYSIS LIMITATION DISCLOSURE:
-                </strong>
-                <p className="text-slate-300 leading-relaxed">
-                  {result.forensic_disclaimer}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Localized Actionable Safety Recommendations */}
-          {result.recommendations && result.recommendations.length > 0 && (
-            <Card>
+            {/* Extracted Content & Original Verbatim Text */}
+            <Card hoverEffect>
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <ShieldCheck size={18} />
-                  <span className="font-display text-sm font-bold">
-                    RECOMMENDED DEFENSE MEASURES ({targetLanguage.toUpperCase()})
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-slate-300 flex items-center gap-2">
+                    <FileText size={15} className="text-emerald-400" />
+                    VERBATIM EXTRACTED CONTENT (OCR / TRANSCRIPT)
+                  </span>
+                  <span className="font-mono text-[10px] text-slate-500">
+                    Preserved verbatim
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {result.recommendations.map((rec, rIdx) => (
-                    <div key={rIdx} className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-start gap-2.5">
-                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                        {rIdx + 1}
-                      </span>
-                      <p className="font-mono text-xs text-slate-200 leading-relaxed">
-                        {rec}
-                      </p>
-                    </div>
-                  ))}
+                <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                  {result.extracted_text || result.transcript || result.content || 'No text extracted.'}
                 </div>
               </div>
             </Card>
-          )}
-        </div>
-      )}
+
+            {/* Video Deepfake Disclaimer (If Video Analyzed) */}
+            {result.media_type === 'video' && result.forensic_disclaimer && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-300 font-mono text-xs shadow-md"
+              >
+                <AlertOctagon size={20} className="flex-shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                  <strong className="block text-amber-200 font-bold mb-1">
+                    FORENSIC DEEPFAKE ANALYSIS LIMITATION DISCLOSURE:
+                  </strong>
+                  <p className="text-slate-300 leading-relaxed">
+                    {result.forensic_disclaimer}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Localized Actionable Safety Recommendations */}
+            {result.recommendations && result.recommendations.length > 0 && (
+              <Card hoverEffect>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <ShieldCheck size={18} />
+                    <span className="font-display text-sm font-bold">
+                      RECOMMENDED DEFENSE MEASURES ({targetLanguage.toUpperCase()})
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {result.recommendations.map((rec, rIdx) => (
+                      <motion.div
+                        key={rIdx}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: rIdx * 0.05 }}
+                        className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-start gap-2.5"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                          {rIdx + 1}
+                        </span>
+                        <p className="font-mono text-xs text-slate-200 leading-relaxed">
+                          {rec}
+                        </p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

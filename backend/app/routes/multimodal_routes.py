@@ -178,3 +178,4 @@ def analyze_video_endpoint():
         auth_token=token
     )
     return jsonify(format_success_response(result))
+

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bot, Send, Paperclip, AlertTriangle, ShieldCheck,
   PhoneCall, Globe, Trash2, Plus, RefreshCw, X,
@@ -65,7 +66,6 @@ export default function TrustLensChatbot() {
 
   // Loading states
   const [sending, setSending] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -233,7 +233,7 @@ export default function TrustLensChatbot() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <SectionHeader
@@ -246,7 +246,11 @@ export default function TrustLensChatbot() {
         {/* Model & Language Controls */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Model selector */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80 shadow-sm"
+          >
             <Cpu size={14} className="text-cyan-400" />
             <select
               value={modelChoice}
@@ -258,10 +262,14 @@ export default function TrustLensChatbot() {
               <option value="groq" className="bg-slate-900 text-slate-200">Groq LLaMA 3.3</option>
               <option value="mistral" className="bg-slate-900 text-slate-200">Mistral AI</option>
             </select>
-          </div>
+          </motion.div>
 
           {/* Language selector */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80 shadow-sm"
+          >
             <Globe size={14} className="text-emerald-400" />
             <select
               value={chatLanguage}
@@ -272,21 +280,28 @@ export default function TrustLensChatbot() {
               <option value="kn" className="bg-slate-900 text-slate-200">ಕನ್ನಡ (Kannada)</option>
               <option value="hi" className="bg-slate-900 text-slate-200">हिंदी (Hindi)</option>
             </select>
-          </div>
+          </motion.div>
         </div>
       </div>
 
       {/* Main Chat Interface Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[720px] rounded-2xl border border-slate-800 bg-slate-950/80 overflow-hidden shadow-2xl backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[720px] rounded-2xl border border-slate-800 bg-slate-950/80 overflow-hidden shadow-2xl backdrop-blur-md"
+      >
         {/* Sidebar: Conversation History */}
         <div className="hidden lg:flex flex-col border-r border-slate-800/80 bg-slate-950 p-4 space-y-4">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleStartNewChat}
-            className="w-full py-2.5 px-3 rounded-lg font-mono text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-2 transition-all shadow-sm"
+            className="w-full py-2.5 px-3 rounded-lg font-mono text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
           >
             <Plus size={15} />
             <span>NEW INCIDENT CHAT</span>
-          </button>
+          </motion.button>
 
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
             <span className="font-mono text-[10px] text-slate-500 uppercase tracking-widest block px-2 mb-1">
@@ -298,8 +313,9 @@ export default function TrustLensChatbot() {
               conversations.map((c) => {
                 const isSelected = c.id === currentConversationId
                 return (
-                  <div
+                  <motion.div
                     key={c.id}
+                    whileHover={{ x: 2 }}
                     onClick={() => handleSelectConversation(c.id)}
                     className={`group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-all ${
                       isSelected
@@ -312,19 +328,29 @@ export default function TrustLensChatbot() {
                     </span>
                     <button
                       onClick={(e) => handleDeleteConversation(e, c.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 text-slate-500 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 text-slate-500 transition-opacity cursor-pointer"
                       title="Delete conversation"
                     >
                       <Trash2 size={13} />
                     </button>
-                  </div>
+                  </motion.div>
                 )
               })
             )}
           </div>
 
           {/* Cyber Emergency Banner in Sidebar */}
-          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 space-y-1 text-rose-300">
+          <motion.div
+            animate={{
+              boxShadow: [
+                '0 0 10px rgba(244, 63, 94, 0.05)',
+                '0 0 20px rgba(244, 63, 94, 0.15)',
+                '0 0 10px rgba(244, 63, 94, 0.05)'
+              ]
+            }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 space-y-1 text-rose-300"
+          >
             <div className="flex items-center gap-1.5 font-bold font-mono text-xs text-rose-400">
               <PhoneCall size={13} />
               <span>Helpline 1930</span>
@@ -332,7 +358,7 @@ export default function TrustLensChatbot() {
             <p className="font-mono text-[10px] text-slate-400">
               In case of active financial fraud, dial 1930 immediately to freeze transactions.
             </p>
-          </div>
+          </motion.div>
         </div>
 
         {/* Chat Main Area */}
@@ -340,99 +366,117 @@ export default function TrustLensChatbot() {
           {/* Quick Action Incident Chips */}
           <div className="p-3 border-b border-slate-800/60 bg-slate-950/40 flex items-center gap-2 overflow-x-auto no-scrollbar">
             {QUICK_ACTIONS.map((action, idx) => (
-              <button
+              <motion.button
                 key={idx}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => handleSendMessage(action.prompt)}
-                className="whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] font-mono border border-slate-800 hover:border-emerald-500/40 bg-slate-900/40 text-slate-300 hover:text-emerald-300 transition-all flex-shrink-0"
+                className="whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] font-mono border border-slate-800 hover:border-emerald-500/40 bg-slate-900/40 text-slate-300 hover:text-emerald-300 transition-all flex-shrink-0 cursor-pointer"
               >
                 {action.label}
-              </button>
+              </motion.button>
             ))}
           </div>
 
-          {/* Messages Feed */}
+          {/* Messages Feed with Framer Motion AnimatePresence */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-            {messages.map((m, idx) => {
-              const isUser = m.role === 'user'
-              return (
-                <div
-                  key={idx}
-                  className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}
-                >
-                  {/* Avatar */}
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
-                      isUser
-                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                        : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-400'
-                    }`}
+            <AnimatePresence initial={false}>
+              {messages.map((m, idx) => {
+                const isUser = m.role === 'user'
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+                    className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}
                   >
-                    {isUser ? <User size={15} /> : <Bot size={15} />}
-                  </div>
-
-                  {/* Bubble */}
-                  <div className={`space-y-1.5 ${isUser ? 'items-end' : ''}`}>
+                    {/* Avatar */}
                     <div
-                      className={`p-4 rounded-2xl text-xs font-mono leading-relaxed shadow-lg ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
                         isUser
-                          ? 'bg-emerald-600/15 border border-emerald-500/40 text-emerald-100 rounded-tr-none'
-                          : m.is_emergency
-                          ? 'bg-rose-950/40 border border-rose-500/50 text-slate-100 rounded-tl-none shadow-rose-900/20'
-                          : m.guardrail_triggered
-                          ? 'bg-amber-950/40 border border-amber-500/50 text-amber-100 rounded-tl-none'
-                          : 'bg-slate-950 border border-slate-800 text-slate-200 rounded-tl-none'
+                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                          : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-400'
                       }`}
                     >
-                      {/* Attached Screenshot indicator */}
-                      {m.attachment_name && (
-                        <div className="mb-2 px-2.5 py-1 rounded bg-slate-900/80 border border-slate-700 text-[10px] text-cyan-300 flex items-center gap-1.5">
-                          <Paperclip size={12} />
-                          <span>Attached: {m.attachment_name}</span>
-                        </div>
-                      )}
-
-                      {/* Formatted Text */}
-                      <div className="whitespace-pre-wrap space-y-2">
-                        {m.content}
-                      </div>
+                      {isUser ? <User size={15} /> : <Bot size={15} />}
                     </div>
 
-                    {/* Metadata Footer */}
-                    {!isUser && m.model_used && (
-                      <div className="flex items-center gap-2 px-1 font-mono text-[10px] text-slate-500">
-                        <Sparkles size={11} className="text-cyan-400" />
-                        <span>Powered by {m.model_used}</span>
+                    {/* Bubble */}
+                    <div className={`space-y-1.5 ${isUser ? 'items-end' : ''}`}>
+                      <div
+                        className={`p-4 rounded-2xl text-xs font-mono leading-relaxed shadow-lg ${
+                          isUser
+                            ? 'bg-emerald-600/15 border border-emerald-500/40 text-emerald-100 rounded-tr-none'
+                            : m.is_emergency
+                            ? 'bg-rose-950/40 border border-rose-500/50 text-slate-100 rounded-tl-none shadow-rose-900/20'
+                            : m.guardrail_triggered
+                            ? 'bg-amber-950/40 border border-amber-500/50 text-amber-100 rounded-tl-none'
+                            : 'bg-slate-950 border border-slate-800 text-slate-200 rounded-tl-none'
+                        }`}
+                      >
+                        {/* Attached Screenshot indicator */}
+                        {m.attachment_name && (
+                          <div className="mb-2 px-2.5 py-1 rounded bg-slate-900/80 border border-slate-700 text-[10px] text-cyan-300 flex items-center gap-1.5">
+                            <Paperclip size={12} />
+                            <span>Attached: {m.attachment_name}</span>
+                          </div>
+                        )}
+
+                        {/* Formatted Text */}
+                        <div className="whitespace-pre-wrap space-y-2">
+                          {m.content}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+
+                      {/* Metadata Footer */}
+                      {!isUser && m.model_used && (
+                        <div className="flex items-center gap-2 px-1 font-mono text-[10px] text-slate-500">
+                          <Sparkles size={11} className="text-cyan-400" />
+                          <span>Powered by {m.model_used}</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
 
             {sending && (
-              <div className="flex items-center gap-3 text-cyan-400 font-mono text-xs p-2">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-3 text-cyan-400 font-mono text-xs p-2"
+              >
                 <Spinner size="sm" />
                 <span className="animate-pulse">TrustLens Assistant is analyzing threat context...</span>
-              </div>
+              </motion.div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Attached File Preview Bar (If Pending) */}
-          {attachedFile && (
-            <div className="px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-cyan-300">
-              <div className="flex items-center gap-2 truncate">
-                <Paperclip size={14} />
-                <span className="truncate">{attachedFile.name} (OCR / Threat Analysis Attached)</span>
-              </div>
-              <button
-                onClick={handleRemoveAttachment}
-                className="p-1 hover:text-rose-400 text-slate-500 transition-colors"
+          <AnimatePresence>
+            {attachedFile && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs font-mono text-cyan-300"
               >
-                <X size={15} />
-              </button>
-            </div>
-          )}
+                <div className="flex items-center gap-2 truncate">
+                  <Paperclip size={14} />
+                  <span className="truncate">{attachedFile.name} (OCR / Threat Analysis Attached)</span>
+                </div>
+                <button
+                  onClick={handleRemoveAttachment}
+                  className="p-1 hover:text-rose-400 text-slate-500 transition-colors cursor-pointer"
+                >
+                  <X size={15} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Input Box Bar */}
           <div className="p-4 border-t border-slate-800 bg-slate-950">
@@ -444,15 +488,17 @@ export default function TrustLensChatbot() {
               className="flex items-center gap-2"
             >
               {/* Attachment Button */}
-              <button
+              <motion.button
                 type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingAttachment}
                 title="Attach screenshot or message image"
-                className="p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900/60 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                className="p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900/60 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {uploadingAttachment ? <RefreshCw size={17} className="animate-spin" /> : <Paperclip size={17} />}
-              </button>
+              </motion.button>
 
               <input
                 ref={fileInputRef}
@@ -470,14 +516,16 @@ export default function TrustLensChatbot() {
                 className="flex-1 px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 placeholder-slate-500 font-mono text-xs focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all"
               />
 
-              <button
+              <motion.button
                 type="submit"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 disabled={sending || (!inputMessage.trim() && !attachedFile)}
-                className="px-5 py-2.5 rounded-lg font-mono text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 rounded-lg font-mono text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <span>SEND</span>
                 <Send size={13} />
-              </button>
+              </motion.button>
             </form>
 
             <div className="mt-2 text-center">
@@ -487,7 +535,7 @@ export default function TrustLensChatbot() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }
