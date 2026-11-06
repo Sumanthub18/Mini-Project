@@ -10,6 +10,8 @@ export default function Navbar() {
 
   const links = [
     { label: 'Dashboard', to: '/dashboard' },
+    { label: 'Multimodal AI', to: '/scan/multimodal' },
+    { label: 'TrustLens Assistant', to: '/chat' },
     { label: 'Scam Scanner', to: '/scan/scam' },
     { label: 'AI Comparison', to: '/scan/compare' },
     { label: 'Fake News', to: '/scan/news' },
@@ -47,7 +49,7 @@ export default function Navbar() {
             <Link
               key={l.to}
               to={l.to}
-              className="px-4 py-2 rounded text-xs font-mono tracking-wider transition-colors"
+              className="px-3 py-2 rounded text-xs font-mono tracking-wider transition-colors"
               style={{ color: '#94a3b8' }}
               onMouseEnter={e => { e.currentTarget.style.color = '#00ff9f'; e.currentTarget.style.background = '#00ff9f0a' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'transparent' }}

@@ -27,12 +27,12 @@ SCAM_CATEGORIES = [
 # Category Pattern Signatures
 CATEGORY_RULES = {
     "Phishing attacks": [
-        r"(click\s+here|visit\s+link|open\s+url|tap\s+link|verify\s+at|login\s+at)\s*(https?://\S+|www\.\S+|\S+\.(?:xyz|top|ru|cc|tk|ml|cf|ga|bit\.ly|tinyurl))",
-        r"(update\s+kyc|kyc\s+expired|verify\s+pan|link\s+aadhaar|kyc\s+verification)",
+        r"(click(?:\s+here|\s+at)?|visit\s+link|open\s+url|tap\s+link|verify\s+at|login\s+at)\s*(https?://\S+|www\.\S+|\S+\.(?:xyz|top|ru|cc|tk|ml|cf|ga|bit\.ly|tinyurl))",
+        r"(update\s+kyc|kyc\s+update|kyc\s+expired|expired\s+kyc|verify\s+pan|link\s+aadhaar|kyc\s+verification)",
         r"(लॉगिन\s+करें|केवाईसी\s+अपडेट|ಲಿಂಕ್\s+ಕ್ಲಿಕ್\s+ಮಾಡಿ)",
     ],
     "Banking fraud": [
-        r"(sbi|hdfc|icici|axis|pnb|bob|bank)\s*(alert|notice|urgent|blocked|suspended|debit|credited)",
+        r"(sbi|hdfc|icici|axis|pnb|bob|bank)\s*(?:account\s+(?:is\s+)?)?(alert|notice|urgent|blocked|suspended|debit|credited)",
         r"(netbanking\s+blocked|debit\s+card\s+blocked|account\s+restricted|unauthorized\s+transaction)",
         r"(बैंक\s+खाता|खाता\s+ब्लॉक|ಬ್ಯಾಂಕ್\s+ಖಾತೆ)",
     ],
@@ -118,7 +118,7 @@ SUSPICIOUS_INDICATORS = [
     },
     {
         "title": "Account Suspension / Service Threat",
-        "pattern": r"(account\s+will\s+be\s+(?:blocked|suspended|terminated|closed|deactivated)|electricity\s+power\s+will\s+be\s+disconnected|power\s+cut|disconnection|सिम\s+ब्लॉक|ಖಾತೆ\s+ರದ್ದು)",
+        "pattern": r"(account\s+(?:is|will\s+be)?\s*(?:blocked|suspended|terminated|closed|deactivated)|electricity\s+power\s+will\s+be\s+disconnected|power\s+cut|disconnection|सिम\s+ब्लॉक|ಖಾತೆ\s+ರದ್ದು)",
         "explanation": "Threatening immediate account suspension or service shutoff is an intimidation tactic used to induce panic.",
         "severity": "high",
         "weight": 25

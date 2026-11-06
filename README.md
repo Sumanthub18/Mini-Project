@@ -1,13 +1,31 @@
-# Scam or Safe? — AI-Powered Cybersecurity & Threat Intelligence Platform
+# TrustLens AI (Scam or Safe?) — Unified Multimodal Digital Trust & Safety Platform
 
-> **Think Before You Click. Verify Before You Believe.**
+> **Think Before You Click. Verify Before You Believe. Defense Across Every Modality.**
 
-**Scam or Safe?** is an end-to-end cybersecurity awareness and threat intelligence platform designed to protect users against digital deception:
-1. 📩 **Scam Message Detection**: Detects banking fraud, UPI phishing, OTP theft, and social engineering using Groq (`llama-3.3-70b-versatile`), Google Gemini (`gemini-3.5-flash-lite`), Mistral AI, and a 13-category deterministic rule engine.
-2. 📰 **Fake News Verification Engine**: Multi-claim extraction, Google Fact Check Tools API integration, live web evidence search, and calibrated 5-tier verdicts (`SUPPORTED`, `CONTRADICTED`, `MIXED`, `UNVERIFIED`, `INSUFFICIENT EVIDENCE`).
-3. 🔗 **Local URL Safety & Pattern Engine**: High-speed detection of phishing URLs, lookalike typosquatting domains, brand impersonation, punycode/IDN attacks, direct IP hosts, transport security checks (HTTPS vs HTTP), social engineering keywords (`login`, `verify`, `update`, `reward`, `claim`), IANA RDAP domain age calculation, and safe HTTP redirect tracing with strict SSRF & private IP defenses — **with zero external URL reputation API dependencies**.
-4. 🤖 **AI Model Comparison**: Side-by-side ensemble comparison of Groq, Gemini, and Mistral with consensus scoring and conflict analysis.
-5. 🔐 **Enterprise Security & Isolation**: Supabase Auth, PostgreSQL database, and Row Level Security (RLS) guaranteeing multi-tenant privacy.
+**TrustLens AI** is an end-to-end multimodal cybersecurity awareness, verification, and threat intelligence platform designed to protect citizens against digital deception and fraud across text, visual media, voice audio, and video:
+
+1. 🌌 **Unified Multimodal AI Analyzer**:
+   - 📝 **Text**: SMS, WhatsApp forwards, emails, banking/UPI alerts, job offers, lottery notifications.
+   - 🖼️ **Images**: JPG, PNG, WEBP OCR extraction, fake payment slips, screenshot threat detection, and QR code destination extraction (sent to URL Safety Engine without auto-opening).
+   - 🎙️ **Voice Audio**: MP3, WAV, M4A transcription using Groq Whisper (`whisper-large-v3`) with speech scam pattern evaluation.
+   - 🎥 **Video**: MP4 keyframe visual OCR, speech audio transcription, and combined threat scoring (with explicit forensic deepfake disclaimer).
+2. 🇮🇳 **Regional Language Intelligence**:
+   - Native support for **English**, **Kannada (ಕನ್ನಡ)**, and **Hindi (हिंदी)**.
+   - Automated script recognition (`[\u0C80-\u0CFF]`, `[\u0900-\u097F]`) and code-mixed dialect detection (Hinglish, Kanglish).
+   - Verbatim original text preservation alongside localized actionable guidance.
+3. ⚖️ **Multi-Model AI Consensus Engine**:
+   - Cross-model synthesis comparing **Google Gemini**, **Groq (LLaMA 3.3)**, **Mistral AI**, and a 13-category deterministic rule engine.
+   - Computes agreement metrics (%), per-model votes, points of agreement, discrepancies, and missing evidence.
+4. 🤖 **TrustLens AI Cyber Safety Assistant**:
+   - 24/7 conversational cybersecurity advisor with context awareness of user's past scans.
+   - Instant emergency response protocol for compromised users (dial **1930**, report on **cybercrime.gov.in**, freeze bank accounts/UPI).
+   - Strict credential guardrails refusing to store or process private passwords, OTPs, or UPI PINs.
+   - Chat attachment support for analyzing screenshots directly in conversation.
+5. 🔗 **URL Safety & Threat Intelligence Engine**:
+   - Google Safe Browsing v4 and VirusTotal API integration.
+   - Local heuristics: lookalike typosquatting domains, punycode/IDN attacks, direct IP hosts, transport security checks (HTTPS vs HTTP), social engineering keywords, IANA RDAP domain age calculation, and safe HTTP redirect tracing with strict SSRF & private IP defenses.
+6. 📰 **Fake News Verification Engine**: Multi-claim extraction, Google Fact Check Tools API integration, live web evidence search, and calibrated 5-tier verdicts.
+7. 🔐 **Enterprise Security & Isolation**: Supabase Auth, PostgreSQL database, and Row Level Security (RLS) guaranteeing multi-tenant privacy.
 
 ---
 
@@ -17,28 +35,26 @@
 Mini-Project/
 ├── backend/                     # Python Flask AI & Security Backend
 │   ├── app/
-│   │   ├── routes/              # API Endpoints (/api/url/*, /api/news/*, /api/analyze/scam, etc.)
+│   │   ├── routes/              # API Endpoints (/api/analyze/multimodal, /api/chat/*, /api/url/*, /api/news/*, etc.)
 │   │   ├── services/
-│   │   │   ├── url_security/    # Local domain analyzer, protocol inspector, RDAP, SSRF redirect tracing
+│   │   │   ├── multimodal/      # Vision OCR & QR, Whisper transcription, Video pipeline, Regional NLP, Consensus Engine
+│   │   │   ├── chatbot/         # TrustLens AI Assistant, emergency triage, credential guardrails
+│   │   │   ├── url_security/    # Safe Browsing, VirusTotal, domain analyzer, RDAP, SSRF redirect tracing
 │   │   │   ├── ai_router.py     # Multi-model routing (Groq, Gemini, Mistral)
-│   │   │   ├── news_analyzer.py # Fact-checking & live evidence pipeline
-│   │   │   └── supabase_service.py # PostgreSQL scan persistence
-│   │   └── utils/               # Validators, source tiering & response formatters
-│   ├── tests/                   # 48 automated unit & integration tests
-│   ├── requirements.txt         # Flask, Flask-CORS, Pydantic, python-dotenv, requests
+│   │   │   └── supabase_service.py # PostgreSQL scan & chat persistence
+│   │   └── utils/               # Response formatters and validators
+│   ├── tests/                   # 65 automated unit & integration tests
+│   ├── requirements.txt         # Flask, Flask-CORS, Pydantic, python-dotenv, requests, pillow
 │   ├── .env.example             # Backend configuration template
 │   └── run.py                   # Server entrypoint (Port 5000)
 │
 ├── scam-or-safe/                # React + Vite + Tailwind CSS Frontend
 │   ├── src/
 │   │   ├── components/          # Cyberpunk HUD components (RiskGauge, Navbar, Sidebar)
-│   │   ├── context/             # Supabase AuthContext & state management
-│   │   ├── hooks/               # useScanHistory, useToast
-│   │   ├── pages/               # URLChecker, FakeNewsChecker, ScamScanner, ModelComparison, etc.
-│   │   └── services/            # urlService, newsService, scamService, scanDatabaseService
-│   ├── supabase/                # PostgreSQL schemas, migrations, and RLS policies
-│   ├── tests/                   # 18 frontend & RLS isolation tests
-│   ├── .env.example             # Frontend configuration template
+│   │   ├── pages/               # MultimodalAnalyzer, TrustLensChatbot, URLChecker, FakeNewsChecker, ScamScanner, etc.
+│   │   ├── services/            # multimodalService, chatService, urlService, newsService, scamService
+│   │   └── context/             # Supabase AuthContext & state management
+│   ├── supabase/                # PostgreSQL schemas, migrations (Day 2, Day 4, Day 6), and RLS policies
 │   └── package.json             # React 18, Vite, Tailwind CSS, Recharts, Lucide React
 │
 └── .gitignore                   # Universal gitignore protecting secrets & build artifacts
@@ -48,75 +64,39 @@ Mini-Project/
 
 ## ⚡ Quick Start
 
-### 1. Prerequisites
-- **Node.js** 18+ and **npm**
-- **Python** 3.10+
-- Free **Supabase** account (for Auth & Database)
-- Optional AI API keys: Groq or Google Gemini (for explanation generation)
-- **Zero URL API keys required**: No Google Safe Browsing or VirusTotal keys needed.
+### 1. Backend Setup (Flask API)
 
-### 2. Backend Setup (Flask API)
 ```bash
 cd backend
-
-# Install dependencies
+python -m venv venv
+venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 
-# Configure environment variables
-cp .env.example .env
-# Edit .env and insert your GEMINI_API_KEY, GROQ_API_KEY, and SUPABASE_URL
+# Configure your API keys in backend/.env
+# GEMINI_API_KEY=...
+# GROQ_API_KEY=...
+# MISTRAL_API_KEY=...
+# GOOGLE_SAFE_BROWSING_API_KEY=...
+# VIRUSTOTAL_API_KEY=...
+# SUPABASE_URL=...
+# SUPABASE_SERVICE_ROLE_KEY=...
 
-# Run unit tests (48 tests)
-python -m unittest discover tests
-
-# Start backend server (Port 5000)
 python run.py
+# Backend runs on http://localhost:5000
 ```
 
-### 3. Frontend Setup (React Application)
+### 2. Frontend Setup (React + Vite)
+
 ```bash
 cd scam-or-safe
-
-# Install dependencies
 npm install
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
-
-# Run tests
-npm test
-
-# Start frontend development server (Port 5173)
 npm run dev
+# Frontend runs on http://localhost:5173
 ```
 
----
+### 3. Run Backend Test Suite
 
-## 🔗 Local URL Safety API Endpoints
-
-- `GET /api/url/health` — Readiness status of local inspection engine, RDAP, and SSRF modules.
-- `POST /api/url/analyze` — Full local inspection pipeline (protocol verification, domain heuristics, keywords, RDAP age, redirect hops, risk scoring, AI explanation).
-- `POST /api/url/check-reputation` — Rapid local reputation & structural check.
-- `GET /api/url/history` — Authenticated history of previous URL scans.
-- `POST /api/url/report` — User false-positive / false-negative reporting.
-
----
-
-## 🧪 Testing Summary
-
-- **Backend Test Suite**: 48 tests passing (`python -m unittest discover backend/tests`)
-  - 20 Local URL Safety & SSRF tests (protocol check, keywords, typosquatting, banking lures, SSRF defense, punycode, redirects, clean verification, zero API key requirement)
-  - 14 Fake News & Evidence tests
-  - 14 Scam Detection & Multi-Model routing tests
-- **Frontend & RLS Test Suite**: 18 tests passing (`npm test`)
-- **Total**: 66 automated tests across authentication, multi-tenant isolation, scam detection, news verification, and local URL threat intelligence.
-
----
-
-## 🛡️ Security
-- **Strict SSRF Defense**: All URL inspections resolve DNS and pre-flight check resolved IP addresses against private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`), link-local addresses, and cloud metadata (`169.254.169.254`, `metadata.google.internal`).
-- **No Client Execution**: Redirect analysis traces HTTP headers without executing scripts or downloading payloads.
-- **Zero Client Secrets**: All AI API keys reside strictly on the backend.
-- **Row Level Security**: Database queries enforce `auth.uid() = user_id` for multi-tenant isolation.
-- **Transparent Boundaries**: Clearly displays that external malware/phishing blacklist database checks are unavailable and never falsely claims a URL is 100% safe.
+```bash
+python -m unittest discover backend/tests
+# Runs 65 tests covering Scam, News, URL Safety, Multimodal, and Chatbot
+```

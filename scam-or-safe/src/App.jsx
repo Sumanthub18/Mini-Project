@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard.jsx'
 import ScamScanner from './pages/ScamScanner.jsx'
 import FakeNewsChecker from './pages/FakeNewsChecker.jsx'
 import URLChecker from './pages/URLChecker.jsx'
+import MultimodalAnalyzer from './pages/MultimodalAnalyzer.jsx'
+import TrustLensChatbot from './pages/TrustLensChatbot.jsx'
 import ModelComparison from './pages/ModelComparison.jsx'
 import ScanHistory from './pages/ScanHistory.jsx'
 import Login from './pages/Login.jsx'
@@ -36,6 +38,8 @@ export default function App() {
               }
             >
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/scan/multimodal" element={<MultimodalAnalyzer />} />
+              <Route path="/chat" element={<TrustLensChatbot />} />
               <Route path="/scan/scam" element={<ScamScanner />} />
               <Route path="/scan/news" element={<FakeNewsChecker />} />
               <Route path="/scan/url" element={<URLChecker />} />

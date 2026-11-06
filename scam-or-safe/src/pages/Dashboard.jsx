@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   MessageSquareWarning, Newspaper, Link2, ArrowRight,
-  TrendingUp, ShieldCheck, AlertTriangle, Shield, RefreshCw, Cpu
+  TrendingUp, ShieldCheck, AlertTriangle, Shield, RefreshCw, Cpu, Sparkles, Bot
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useScanHistory } from '../hooks/useScanHistory.jsx'
@@ -14,6 +14,14 @@ import {
 } from 'recharts'
 
 const QUICK_ACTIONS = [
+  {
+    to: '/scan/multimodal', icon: Sparkles, label: 'Multimodal AI',
+    color: '#00ff9f', bg: '#00ff9f08', border: '#00ff9f22', tag: 'TEXT / IMG / AUDIO / VIDEO',
+  },
+  {
+    to: '/chat', icon: Bot, label: 'TrustLens Assistant',
+    color: '#ff006e', bg: '#ff006e08', border: '#ff006e22', tag: '24/7 CYBER RESCUE CHAT',
+  },
   {
     to: '/scan/scam', icon: MessageSquareWarning, label: 'Scam Scanner',
     color: '#ff006e', bg: '#ff006e08', border: '#ff006e22', tag: 'AI SCAM DETECTION',

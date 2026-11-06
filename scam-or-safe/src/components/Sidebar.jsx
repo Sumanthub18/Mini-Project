@@ -1,13 +1,16 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Shield, LayoutDashboard, MessageSquareWarning, Newspaper,
-  Link2, Cpu, History, Settings, LogOut, ChevronLeft, ChevronRight, User
+  Link2, Cpu, History, Settings, LogOut, ChevronLeft, ChevronRight, User,
+  Sparkles, Bot
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../hooks/useToast.jsx'
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#00ff9f' },
+  { to: '/scan/multimodal', icon: Sparkles, label: 'Multimodal AI', color: '#00ff9f' },
+  { to: '/chat', icon: Bot, label: 'TrustLens Assistant', color: '#ff006e' },
   { to: '/scan/scam', icon: MessageSquareWarning, label: 'Scam Scanner', color: '#ff006e' },
   { to: '/scan/compare', icon: Cpu, label: 'AI Comparison', color: '#00d4ff' },
   { to: '/scan/news', icon: Newspaper, label: 'Fake News', color: '#bf00ff' },
