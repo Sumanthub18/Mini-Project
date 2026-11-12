@@ -1,49 +1,78 @@
 import { motion } from 'framer-motion'
+import { AlertTriangle, CheckCircle2, Info, Sparkles } from 'lucide-react'
 import { riskColor, riskBg, riskBorder } from '../utils/helpers.js'
 
-/** Circular risk gauge SVG — neon cyberpunk style with Framer Motion */
-export function RiskGauge({ score = 0, level = 'LOW' }) {
-  const radius = 40
+/** Circular risk gauge SVG — TrustLens AI holographic violet & cyan style */
+export function RiskGauge({ score = 0, level = 'LOW', size = 122 }) {
+  const radius = 42
   const circumference = 2 * Math.PI * radius
-  const offset = circumference - (score / 100) * circumference
+  const clamped = Math.min(100, Math.max(0, Number(score) || 0))
+  const offset = circumference - (clamped / 100) * circumference
   const color = riskColor(level)
 
   return (
     <motion.div
-      initial={{ scale: 0.85, opacity: 0 }}
+      initial={{ scale: 0.88, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-      className="flex flex-col items-center gap-2"
+      transition={{ type: 'spring', stiffness: 250, damping: 22 }}
+      className="flex flex-col items-center gap-2.5 flex-shrink-0"
     >
-      <div className="relative" style={{ filter: `drop-shadow(0 0 10px ${color}88)` }}>
-        <svg width="110" height="110" viewBox="0 0 110 110" aria-label={`Risk score: ${score} out of 100`}>
-          {/* Outer ring */}
-          <circle cx="55" cy="55" r="48" fill="none" stroke={color + '15'} strokeWidth="1" />
+      <div className="relative" style={{ filter: `drop-shadow(0 0 14px ${color}55)` }}>
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 116 116"
+          aria-label={`Risk assessment indicator: ${clamped} out of 100`}
+        >
+          {/* Outer faint halo ring */}
+          <circle cx="58" cy="58" r="52" fill="none" stroke="rgba(196,178,255,0.14)" strokeWidth="1" />
           {/* Track */}
-          <circle cx="55" cy="55" r={radius} fill="none" stroke="#0f2040" strokeWidth="10" />
-          {/* Fill with smooth SVG stroke animation */}
+          <circle cx="58" cy="58" r={radius} fill="none" stroke="rgba(141,148,255,0.14)" strokeWidth="9" />
+          {/* Animated arc */}
           <motion.circle
-            cx="55" cy="55" r={radius}
+            cx="58"
+            cy="58"
+            r={radius}
             fill="none"
             stroke={color}
-            strokeWidth="10"
-            strokeLinecap="butt"
+            strokeWidth="9"
+            strokeLinecap="round"
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 0.9, ease: 'easeOut' }}
-            transform="rotate(-90 55 55)"
+            transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
+            transform="rotate(-90 58 58)"
           />
-          {/* Inner ring accent */}
-          <circle cx="55" cy="55" r="28" fill="none" stroke={color + '20'} strokeWidth="1" strokeDasharray="4 4" />
-          {/* Score text */}
+          {/* Inner reticle */}
+          <circle
+            cx="58"
+            cy="58"
+            r="31"
+            fill="rgba(13, 8, 48, 0.5)"
+            stroke="rgba(196,178,255,0.14)"
+            strokeWidth="1"
+            strokeDasharray="3 4"
+          />
           <text
-            x="55" y="51" textAnchor="middle" fill={color} fontSize="22" fontWeight="800" fontFamily="Orbitron,monospace"
-            style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+            x="58"
+            y="55"
+            textAnchor="middle"
+            fill={color}
+            fontSize="23"
+            fontWeight="700"
+            fontFamily="Space Grotesk, sans-serif"
           >
-            {score}
+            {clamped}
           </text>
-          <text x="55" y="66" textAnchor="middle" fill="#4a6080" fontSize="9" fontFamily="Share Tech Mono,monospace" letterSpacing="1">
+          <text
+            x="58"
+            y="71"
+            textAnchor="middle"
+            fill="rgba(236,232,255,0.55)"
+            fontSize="9"
+            fontFamily="JetBrains Mono, monospace"
+            letterSpacing="1"
+          >
             / 100
           </text>
         </svg>
@@ -55,76 +84,74 @@ export function RiskGauge({ score = 0, level = 'LOW' }) {
 
 /** Inline risk level badge */
 export function RiskBadge({ level }) {
-  const color = riskColor(level)
-  const bg = riskBg(level)
-  const border = riskBorder(level)
-  const label = level === 'HIGH' ? '▲ HIGH RISK' : level === 'MEDIUM' ? '◆ MEDIUM' : '▼ LOW RISK'
+  const norm = (level || 'LOW').toUpperCase()
+  const color = riskColor(norm)
+  const bg = riskBg(norm)
+  const border = riskBorder(norm)
+  const label = norm === 'HIGH' ? 'HIGH RISK' : norm === 'MEDIUM' ? 'MEDIUM RISK' : 'LOW RISK'
 
   return (
     <motion.span
       initial={{ opacity: 0, y: 3 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="inline-flex items-center px-3 py-1 text-xs font-bold tracking-widest"
+      transition={{ duration: 0.25 }}
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wider"
       style={{
         color,
         background: bg,
         border: `1px solid ${border}`,
-        textShadow: `0 0 8px ${color}88`,
-        fontFamily: 'Orbitron, monospace',
-        clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+        boxShadow: `0 0 16px ${color}20`,
       }}
     >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
       {label}
     </motion.span>
   )
 }
 
-/** Demo result disclaimer banner */
-export function DemoBanner() {
+/** Fallback / offline heuristic disclaimer banner */
+export function DemoBanner({ text }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-start gap-3 px-4 py-3 text-sm relative"
+      className="flex items-start gap-3 px-4 py-3 rounded-2xl text-xs"
       style={{
-        background: '#00d4ff08',
-        border: '1px solid #00d4ff22',
-        color: '#4a6080',
-        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+        background: 'rgba(111, 120, 255, 0.10)',
+        border: '1px solid rgba(196, 178, 255, 0.22)',
+        color: 'rgba(236, 232, 255, 0.78)',
       }}
       role="note"
-      aria-label="Demo result disclaimer"
+      aria-label="Fallback mode disclaimer"
     >
-      <span className="text-base flex-shrink-0" style={{ filter: 'drop-shadow(0 0 4px #00d4ff)' }}>🔬</span>
+      <Info size={16} className="text-[#00E5FF] flex-shrink-0 mt-0.5" />
       <span>
-        <strong style={{ color: '#00d4ff', textShadow: '0 0 8px #00d4ff88' }}>[ DEMO RESULT ]</strong>
-        {' '}— Analysis based on local pattern matching. No real AI or external API was used.
+        <strong className="text-[#00E5FF]">Local Heuristic Mode:</strong>{' '}
+        {text || 'Analysis is using deterministic local pattern checks because the live backend engine is offline.'}
       </span>
     </motion.div>
   )
 }
 
-/** Result summary card */
+/** Result summary banner */
 export function ResultSummary({ result }) {
-  const color = riskColor(result.level)
-  const bg = riskBg(result.level)
-  const border = riskBorder(result.level)
+  const color = riskColor(result?.level)
+  const bg = riskBg(result?.level)
+  const border = riskBorder(result?.level)
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="px-5 py-4"
+      transition={{ duration: 0.3 }}
+      className="px-5 py-4 rounded-2xl"
       style={{
         background: bg,
         border: `1px solid ${border}`,
-        boxShadow: `0 0 20px ${color}12`,
-        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)',
+        boxShadow: `0 8px 24px ${color}14`,
       }}
     >
-      <p className="text-sm leading-relaxed" style={{ color: '#e2e8f0' }}>{result.summary}</p>
+      <p className="text-sm leading-relaxed text-[#F4F2FF]">{result?.summary}</p>
     </motion.div>
   )
 }
@@ -136,42 +163,41 @@ export function WarningList({ warnings }) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex items-center gap-2 text-sm px-4 py-3"
+        className="flex items-center gap-2.5 text-sm px-4 py-3.5 rounded-2xl"
         style={{
-          background: '#00ff9f08',
-          border: '1px solid #00ff9f22',
-          color: '#00ff9f',
-          textShadow: '0 0 8px #00ff9f44',
-          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          background: 'rgba(94, 230, 168, 0.08)',
+          border: '1px solid rgba(94, 230, 168, 0.28)',
+          color: '#5EE6A8',
         }}
       >
-        <span>✓</span> No warning signs detected.
+        <CheckCircle2 size={16} className="flex-shrink-0" />
+        <span>No obvious warning signs detected.</span>
       </motion.div>
     )
   }
+
   return (
-    <ul className="flex flex-col gap-2" role="list">
+    <ul className="flex flex-col gap-2.5" role="list">
       {warnings.map((w, i) => (
         <motion.li
           key={i}
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: i * 0.05, duration: 0.25 }}
-          className="flex items-start gap-3 px-4 py-3"
+          className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
           style={{
-            background: '#ff006e08',
-            border: '1px solid #ff006e22',
-            clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+            background: 'rgba(255, 91, 120, 0.08)',
+            border: '1px solid rgba(255, 91, 120, 0.25)',
           }}
         >
-          <span className="text-sm flex-shrink-0 mt-0.5" style={{ color: '#ff006e', textShadow: '0 0 8px #ff006e' }}>⚠</span>
-          <div>
+          <AlertTriangle size={16} className="text-[#FF5B78] flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
             {w.phrase && (
-              <p className="text-xs font-bold mb-1 font-mono" style={{ color: '#ff006e', letterSpacing: '0.04em' }}>
-                PHRASE: "<em>{w.phrase}</em>"
+              <p className="text-xs font-mono font-semibold text-[#FF5B78] mb-1">
+                Detected Phrase: &ldquo;<em>{w.phrase}</em>&rdquo;
               </p>
             )}
-            <p className="text-sm" style={{ color: '#94a3b8' }}>{w.reason}</p>
+            <p className="text-sm text-[rgba(236,232,255,0.82)] leading-relaxed">{w.reason}</p>
           </div>
         </motion.li>
       ))}
@@ -182,24 +208,24 @@ export function WarningList({ warnings }) {
 /** Recommended actions list */
 export function RecommendationList({ recommendations }) {
   if (!recommendations || recommendations.length === 0) return null
+
   return (
-    <ul className="flex flex-col gap-2" role="list">
+    <ul className="flex flex-col gap-2.5" role="list">
       {recommendations.map((r, i) => (
         <motion.li
           key={i}
           initial={{ opacity: 0, x: -6 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: i * 0.05, duration: 0.25 }}
-          className="flex items-start gap-3 text-sm px-4 py-3"
+          className="flex items-start gap-3 text-sm px-4 py-3 rounded-2xl"
           style={{
-            background: '#00ff9f06',
-            border: '1px solid #00ff9f18',
-            color: '#e2e8f0',
-            clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)',
+            background: 'rgba(94, 230, 168, 0.06)',
+            border: '1px solid rgba(94, 230, 168, 0.22)',
+            color: '#F4F2FF',
           }}
         >
-          <span className="flex-shrink-0 font-mono" style={{ color: '#00ff9f', textShadow: '0 0 6px #00ff9f' }}>→</span>
-          <span>{r}</span>
+          <span className="flex-shrink-0 font-mono text-[#5EE6A8] font-bold">→</span>
+          <span className="leading-relaxed">{r}</span>
         </motion.li>
       ))}
     </ul>
@@ -207,7 +233,7 @@ export function RecommendationList({ recommendations }) {
 }
 
 /** Loading spinner */
-export function Spinner({ size = 24, color = '#00ff9f' }) {
+export function Spinner({ size = 24, color = '#00E5FF' }) {
   return (
     <svg
       className="spinner"
@@ -217,15 +243,15 @@ export function Spinner({ size = 24, color = '#00ff9f' }) {
       fill="none"
       aria-label="Loading"
       role="status"
-      style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+      style={{ filter: `drop-shadow(0 0 6px ${color}88)` }}
     >
-      <circle cx="12" cy="12" r="10" stroke={color} strokeOpacity="0.15" strokeWidth="2" />
-      <path d="M12 2a10 10 0 0 1 10 10" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="10" stroke={color} strokeOpacity="0.18" strokeWidth="2.2" />
+      <path d="M12 2a10 10 0 0 1 10 10" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   )
 }
 
-/** Section header — HUD style */
+/** Section header — TrustLens AI Cyber Intelligence style */
 export function SectionHeader({ title, subtitle, icon: Icon, badge }) {
   return (
     <motion.div
@@ -234,23 +260,28 @@ export function SectionHeader({ title, subtitle, icon: Icon, badge }) {
       transition={{ duration: 0.3 }}
       className="mb-7"
     >
-      <div className="flex flex-wrap items-center gap-3 mb-2">
-        <div style={{ width: 3, height: 28, background: 'linear-gradient(180deg, #00ff9f, #00d4ff)', boxShadow: '0 0 8px #00ff9f' }} />
-        {Icon && <Icon size={24} className="text-emerald-400" />}
-        <h1
-          className="font-display font-bold text-2xl md:text-3xl tracking-wide"
-          style={{ color: '#00ff9f', textShadow: '0 0 20px #00ff9f44', letterSpacing: '0.08em' }}
-        >
+      <div className="flex flex-wrap items-center gap-3 mb-1.5">
+        <div
+          className="w-1 h-7 rounded-full"
+          style={{ background: 'linear-gradient(180deg, #00E5FF, #6F78FF)' }}
+        />
+        {Icon && (
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#6F78FF]/15 border border-[rgba(196,178,255,0.22)]">
+            <Icon size={18} className="text-[#00E5FF]" />
+          </div>
+        )}
+        <h1 className="font-display font-bold text-2xl md:text-3xl tracking-tight text-[#F4F2FF]">
           {title}
         </h1>
         {badge && (
-          <span className="font-mono text-[10px] px-2.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-1 rounded-full border border-[rgba(0,229,255,0.3)] bg-[rgba(0,229,255,0.08)] text-[#00E5FF]">
+            <Sparkles size={11} />
             {badge}
           </span>
         )}
       </div>
       {subtitle && (
-        <p className="mt-1 text-sm font-mono pl-6" style={{ color: '#4a6080', letterSpacing: '0.04em' }}>
+        <p className="mt-1 text-sm text-[rgba(236,232,255,0.72)] pl-4 max-w-3xl leading-relaxed">
           {subtitle}
         </p>
       )}
@@ -258,68 +289,50 @@ export function SectionHeader({ title, subtitle, icon: Icon, badge }) {
   )
 }
 
-/** Card wrapper — cyberpunk */
+/** Glassmorphism Card wrapper */
 export function Card({ children, className = '', style = {}, hoverEffect = false }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: 'easeOut' }}
-      whileHover={hoverEffect ? { y: -2, boxShadow: '0 8px 30px rgba(0, 255, 159, 0.12)' } : undefined}
-      className={`p-5 relative ${className}`}
-      style={{
-        background: 'linear-gradient(135deg, #0d1424 0%, #090d1a 100%)',
-        border: '1px solid #00ff9f18',
-        boxShadow: 'inset 0 0 30px #00ff9f05, 0 4px 20px #00000060',
-        clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
-        ...style
-      }}
+      transition={{ duration: 0.32, ease: 'easeOut' }}
+      whileHover={
+        hoverEffect
+          ? {
+              y: -3,
+              boxShadow: '0 18px 42px rgba(111, 120, 255, 0.22), 0 0 0 1px rgba(0, 229, 255, 0.25)',
+            }
+          : undefined
+      }
+      className={`p-5 sm:p-6 relative tl-glass-card ${className}`}
+      style={style}
     >
-      {/* Corner accents */}
-      <span
-        aria-hidden="true"
-        style={{
-          position: 'absolute', top: 4, left: 4,
-          width: 10, height: 10,
-          borderTop: '1px solid #00ff9f44',
-          borderLeft: '1px solid #00ff9f44',
-        }}
-      />
-      <span
-        aria-hidden="true"
-        style={{
-          position: 'absolute', bottom: 4, right: 4,
-          width: 10, height: 10,
-          borderBottom: '1px solid #00ff9f44',
-          borderRight: '1px solid #00ff9f44',
-        }}
-      />
       {children}
     </motion.div>
   )
 }
 
 /** Empty state */
-export function EmptyState({ icon = '📭', title, description }) {
+export function EmptyState({ icon = '🛡️', title, description }) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center justify-center py-16 text-center gap-4"
+      className="flex flex-col items-center justify-center py-14 text-center gap-4"
     >
       <div
-        className="w-20 h-20 flex items-center justify-center"
+        className="w-16 h-16 rounded-2xl flex items-center justify-center"
         style={{
-          background: '#0d1424',
-          border: '1px solid #00ff9f18',
-          clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
+          background: 'rgba(111, 120, 255, 0.14)',
+          border: '1px solid rgba(196, 178, 255, 0.22)',
+          boxShadow: '0 0 24px rgba(111, 120, 255, 0.18)',
         }}
       >
-        <span className="text-4xl" style={{ filter: 'grayscale(0.3)' }}>{icon}</span>
+        <span className="text-3xl">{icon}</span>
       </div>
       <div>
-        <h3 className="font-display font-bold text-base mb-2" style={{ color: '#e2e8f0', letterSpacing: '0.08em' }}>{title}</h3>
-        <p className="text-sm max-w-xs font-mono" style={{ color: '#4a6080', letterSpacing: '0.04em' }}>{description}</p>
+        <h3 className="font-display font-semibold text-base mb-1.5 text-[#F4F2FF]">{title}</h3>
+        <p className="text-sm max-w-sm text-[rgba(236,232,255,0.68)]">{description}</p>
       </div>
     </motion.div>
   )

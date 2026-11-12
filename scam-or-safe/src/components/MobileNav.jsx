@@ -1,151 +1,119 @@
 import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import {
-  Shield, LayoutDashboard, MessageSquareWarning, Newspaper,
-  Link2, History, Settings, X, Menu, LogOut, User
-} from 'lucide-react'
+import { NavLink, Link, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Menu, X, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../hooks/useToast.jsx'
-
-const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#00ff9f' },
-  { to: '/scan/scam', icon: MessageSquareWarning, label: 'Scam Scanner', color: '#ff006e' },
-  { to: '/scan/news', icon: Newspaper, label: 'Fake News', color: '#bf00ff' },
-  { to: '/scan/url', icon: Link2, label: 'URL Checker', color: '#00d4ff' },
-  { to: '/history', icon: History, label: 'History', color: '#00ff9f' },
-  { to: '/settings', icon: Settings, label: 'Settings', color: '#ffb800' },
-]
+import { TrustLensLogo } from './Navbar.jsx'
+import { SIDEBAR_NAV_ITEMS } from './Sidebar.jsx'
 
 export default function MobileNav() {
   const [open, setOpen] = useState(false)
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const { user, profile, signOut } = useAuth()
-  const { addToast } = useToast()
+  const { toast } = useToast()
 
-  const displayName = profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Operator'
+  const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Analyst'
 
   const handleSignOut = async () => {
     setOpen(false)
     await signOut()
-    addToast('Signed out of terminal.', 'info')
+    toast.info('Signed out of TrustLens AI')
     navigate('/login')
   }
 
   return (
-    <div className="md:hidden">
-      {/* Top bar */}
-      <div
-        className="flex items-center justify-between px-4 h-14 sticky top-0 z-30"
+    <div className="md:hidden relative z-30">
+      <header
+        className="flex items-center justify-between px-4 h-14 border-b"
         style={{
-          background: '#090d1aEE',
-          borderBottom: '1px solid #00ff9f15',
-          backdropFilter: 'blur(16px)',
-          boxShadow: '0 2px 20px #00000060',
+          background: 'rgba(13, 8, 48, 0.88)',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          borderColor: 'rgba(196, 178, 255, 0.16)',
         }}
       >
-        {/* Top edge accent */}
-        <div
-          style={{
-            position: 'absolute', top: 0, left: 0, right: 0,
-            height: 1,
-            background: 'linear-gradient(90deg, transparent, #00ff9f, transparent)',
-          }}
-        />
-
-        <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 flex items-center justify-center"
-            style={{
-              background: '#00ff9f12',
-              border: '1px solid #00ff9f33',
-              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: '0 0 8px #00ff9f22',
-            }}
-          >
-            <Shield size={14} style={{ color: '#00ff9f', filter: 'drop-shadow(0 0 4px #00ff9f)' }} />
-          </div>
-          <span
-            className="font-display font-bold text-sm tracking-widest flicker"
-            style={{ color: '#00ff9f', textShadow: '0 0 8px #00ff9f88', letterSpacing: '0.15em', fontSize: '0.75rem' }}
-          >
-            SCAM<span style={{ color: '#bf00ff', textShadow: '0 0 8px #bf00ff88' }}>OR</span>SAFE
-          </span>
-        </div>
-
+        <Link to="/" onClick={() => setOpen(false)}>
+          <TrustLensLogo compact />
+        </Link>
         <button
-          onClick={() => setOpen(v => !v)}
-          className="p-2 transition-all"
-          style={{ color: open ? '#00ff9f' : '#4a6080' }}
-          aria-label={open ? 'Close menu' : 'Open menu'}
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="p-2 rounded-xl text-[rgba(236,232,255,0.82)] hover:text-[#F4F2FF] hover:bg-white/5 transition-colors"
+          aria-label="Toggle workspace navigation"
         >
-          {open
-            ? <X size={18} style={{ filter: 'drop-shadow(0 0 4px #00ff9f)' }} />
-            : <Menu size={18} />
-          }
+          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
-      </div>
+      </header>
 
-      {/* Drawer */}
-      {open && (
-        <div
-          className="fixed inset-0 z-20 animate-fade-in"
-          style={{ background: '#050810CC', backdropFilter: 'blur(8px)' }}
-          onClick={() => setOpen(false)}
-        >
-          <nav
-            className="absolute left-0 top-14 bottom-0 flex flex-col justify-between p-3 overflow-y-auto"
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden border-b"
             style={{
-              width: 260,
-              background: 'linear-gradient(180deg, #090d1a 0%, #050810 100%)',
-              borderRight: '1px solid #00ff9f15',
-              boxShadow: '4px 0 30px #00000080',
+              background: 'rgba(16, 11, 53, 0.96)',
+              backdropFilter: 'blur(20px)',
+              borderColor: 'rgba(196, 178, 255, 0.16)',
             }}
-            onClick={e => e.stopPropagation()}
           >
-            <div className="flex flex-col gap-0.5">
-              <p className="font-mono text-xs px-3 py-2 mb-1" style={{ color: '#00ff9f33', letterSpacing: '0.15em' }}>
-                // MODULES
-              </p>
-
-              {NAV_ITEMS.map(({ to, icon: Icon, label, color }) => (
+            <nav className="p-3 space-y-1 max-h-[75vh] overflow-y-auto">
+              {SIDEBAR_NAV_ITEMS.map(({ to, icon: Icon, label, badge }) => (
                 <NavLink
                   key={to}
                   to={to}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all"
-                  style={({ isActive }) => ({
-                    background: isActive ? `${color}12` : 'transparent',
-                    color: isActive ? color : '#4a6080',
-                    borderLeft: isActive ? `2px solid ${color}` : '2px solid transparent',
-                    borderRadius: isActive ? '0 8px 8px 0' : '8px',
-                    textShadow: isActive ? `0 0 8px ${color}66` : 'none',
-                  })}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-[#F4F2FF]'
+                        : 'text-[rgba(236,232,255,0.72)] hover:text-[#F4F2FF] hover:bg-white/5'
+                    }`
+                  }
+                  style={({ isActive }) =>
+                    isActive
+                      ? {
+                          background: 'linear-gradient(135deg, rgba(111,120,255,0.24), rgba(0,229,255,0.12))',
+                          border: '1px solid rgba(141,148,255,0.34)',
+                        }
+                      : undefined
+                  }
                 >
-                  <Icon size={16} />
-                  <span style={{ letterSpacing: '0.04em', fontSize: '0.8rem' }}>{label}</span>
+                  <Icon className="w-4 h-4 text-[#00E5FF]" />
+                  <span className="flex-1">{label}</span>
+                  {badge && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#00E5FF]/15 text-[#00E5FF]">
+                      {badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
-            </div>
 
-            {/* Bottom User & Logout */}
-            <div className="pt-3 border-t border-slate-800 flex flex-col gap-2">
-              {user && (
-                <div className="px-3 py-2 rounded flex items-center gap-2" style={{ background: '#050810' }}>
-                  <User size={14} style={{ color: '#00ff9f' }} />
-                  <span className="text-xs font-mono text-slate-300 truncate">{displayName}</span>
-                </div>
-              )}
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-2 px-3 py-2.5 rounded text-xs font-mono w-full transition-colors"
-                style={{ background: '#ff006e12', color: '#ff006e', border: '1px solid #ff006e22' }}
+              <div
+                className="pt-2 mt-2 border-t flex items-center justify-between px-3 py-2"
+                style={{ borderColor: 'rgba(196,178,255,0.14)' }}
               >
-                <LogOut size={14} /> Sign Out
-              </button>
-            </div>
-          </nav>
-        </div>
-      )}
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-[#F4F2FF] truncate">{displayName}</p>
+                  <p className="text-[11px] font-mono text-[rgba(236,232,255,0.52)] truncate">
+                    {user?.email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#FF5B78] bg-[#FF5B78]/10 hover:bg-[#FF5B78]/20 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Sign Out
+                </button>
+              </div>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

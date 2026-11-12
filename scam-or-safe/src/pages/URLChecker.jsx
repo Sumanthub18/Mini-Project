@@ -1,582 +1,682 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Link2, Trash2, RefreshCw, AlertCircle, Shield, ShieldAlert,
-  ShieldCheck, Globe, Server, Clock, ExternalLink, Lock,
-  AlertTriangle, CheckCircle2, Layers, Cpu, CornerDownRight, Check
+  Link2,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+  Globe,
+  Server,
+  Clock,
+  ArrowRight,
+  Copy,
+  CheckCheck,
+  Trash2,
+  Search,
+  Lock,
+  Unlock,
+  Info,
+  Activity,
+  Cpu,
 } from 'lucide-react'
-import { analyzeUrl, isValidUrl, getUrlEngineHealth, EXAMPLE_URLS } from '../services/urlService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useScanHistory } from '../hooks/useScanHistory.jsx'
 import { useToast } from '../hooks/useToast.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
-import { saveScan } from '../services/scanDatabaseService.js'
 import {
-  SectionHeader, Card, RiskGauge, DemoBanner,
-  Spinner
-} from '../components/ResultComponents.jsx'
+  EXAMPLE_URLS,
+  isValidUrl,
+  getUrlEngineHealth,
+  analyzeUrl,
+} from '../services/urlService.js'
+import { saveScan } from '../services/scanDatabaseService.js'
+import { RiskGauge, RiskBadge, SectionHeader } from '../components/ResultComponents.jsx'
+import { copyToClipboard, riskColor, normalizeRiskLevel } from '../utils/helpers.js'
 
 export default function URLChecker() {
-  const [input, setInput] = useState('')
+  const location = useLocation()
+  const { user, session } = useAuth()
+  const { addScan } = useScanHistory()
+  const { toast } = useToast()
+
+  const [urlInput, setUrlInput] = useState(() => location.state?.initialUrl || '')
+  const [checkRedirects, setCheckRedirects] = useState(true)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
-  const [healthStatus, setHealthStatus] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [healthStatus, setHealthStatus] = useState(null)
 
-  const { addScan } = useScanHistory()
-  const { addToast } = useToast()
-  const { user, session } = useAuth()
-
-  // Load backend engine readiness on mount
   useEffect(() => {
-    getUrlEngineHealth().then(data => {
-      setHealthStatus(data)
-    }).catch(() => {})
+    let active = true
+    getUrlEngineHealth()
+      .then((h) => active && setHealthStatus(h))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
   }, [])
 
-  const handleAnalyze = async (overrideUrl) => {
-    setError('')
-    const targetUrl = (overrideUrl || input).trim()
-    if (!targetUrl) {
-      setError('Please enter a URL to analyze.')
+  const handleAnalyze = async (targetOverride) => {
+    const raw = (typeof targetOverride === 'string' ? targetOverride : urlInput).trim()
+    if (!raw) {
+      setError('Enter a URL or domain to inspect safely.')
       return
     }
-    if (!isValidUrl(targetUrl)) {
-      setError('Please enter a valid URL (e.g., https://example.com/login).')
+    const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    if (!isValidUrl(candidate)) {
+      setError('Please enter a valid http:// or https:// URL.')
       return
     }
 
+    setError('')
     setLoading(true)
     setResult(null)
 
     try {
-      const res = await analyzeUrl(targetUrl, {
-        checkRedirects: true,
+      const res = await analyzeUrl(candidate, {
+        checkRedirects,
         authToken: session?.access_token,
-        userId: user?.id
+        userId: user?.id,
       })
+      const normalized = {
+        ...res,
+        url: res.normalized_url || candidate,
+      }
+      setResult(normalized)
 
-      setResult(res)
+      const score = Number(normalized.score ?? 0)
+      const level = normalizeRiskLevel(normalized.level)
 
-      // Add to local state history
-      addScan({
-        type: 'URL',
-        input: targetUrl,
-        result: res
-      })
-
-      // Persist to Supabase if user is logged in
       if (user?.id) {
-        saveScan({
-          userId: user.id,
+        await saveScan(user.id, {
           scanType: 'url',
-          summary: res.summary,
-          riskScore: res.score,
-          riskLevel: res.level,
-          findings: res.contributing_factors || [],
-          evidenceSources: [
-            {
-              title: 'URL Threat Intelligence Engine',
-              publisher: 'ScamOrSafe Security',
-              source_url: targetUrl,
-              evidence_summary: res.summary
-            }
-          ]
-        }).catch(err => console.warn('Supabase log error:', err))
+          target: normalized.url,
+          riskScore: score,
+          riskLevel: level,
+          summary: normalized.summary,
+          rawResult: normalized,
+        }).catch(() => {})
       }
 
-      addToast('URL security inspection complete.', 'success')
-    } catch (e) {
-      setError(e.message || 'Analysis failed. Please check backend connection.')
-      addToast('URL analysis failed.', 'error')
+      await addScan({
+        type: 'url',
+        target: normalized.url,
+        riskScore: score,
+        riskLevel: level,
+        summary: normalized.summary,
+        result: normalized,
+      })
+
+      toast.success('URL safety inspection completed.')
+    } catch (err) {
+      const msg = err.message || 'URL inspection failed. Verify backend connection.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleAnalyze()
-  }
-
-  const handleClear = () => {
-    setInput('')
-    setResult(null)
-    setError('')
-  }
-
-  const handleAnalyzeAnother = () => {
-    setResult(null)
-    setError('')
-  }
-
-  const handleCopyUrl = (text) => {
-    navigator.clipboard?.writeText(text)
+  const handleCopyUrl = async (text) => {
+    await copyToClipboard(text)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    addToast('URL copied to clipboard', 'info')
+    setTimeout(() => setCopied(false), 1800)
   }
+
+  const gs = result?.threat_intelligence?.google_safe_browsing
+  const vt = result?.threat_intelligence?.virustotal
+  const di = result?.domain_intelligence
+
+  const gsConfigured = Boolean(gs?.configured) && gs?.status !== 'unavailable' && gs?.status !== 'offline'
+  const vtConfigured = Boolean(vt?.configured) && vt?.status !== 'unavailable' && vt?.status !== 'offline'
 
   return (
-    <div className="max-w-4xl mx-auto animate-slide-up space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <SectionHeader
-        title="URL Safety & Threat Intelligence Engine"
-        subtitle="Inspect URLs for phishing, typosquatting, social engineering keywords, Google Safe Browsing matches, VirusTotal engine reputation, and deceptive redirects safely server-side."
+        badge="URL SAFETY & DOMAIN INTELLIGENCE"
+        title="Safe Link Inspector"
+        subtitle="Inspect suspicious links without opening them directly. Combines RDAP domain intelligence, lookalike heuristics, redirect SSRF defense, Google Safe Browsing, and VirusTotal."
       />
 
-      {/* Safety Notice Banner */}
-      <div
-        className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
-        style={{ background: '#F59E0B15', border: '1px solid #F59E0B44', color: '#F1F5F9' }}
-      >
-        <ShieldAlert size={18} className="flex-shrink-0 mt-0.5 text-amber-400" />
-        <div className="text-xs space-y-1">
-          <p className="font-semibold text-amber-300">SAFETY DIRECTIVE:</p>
-          <p className="text-slate-300">
-            Never visit suspicious links or submit sensitive personal or financial credentials. All threat intelligence queries and redirect traces
-            are performed securely on the backend with strict SSRF defense. No tool can guarantee a URL is 100% safe.
-          </p>
+      {/* Engine Readiness Pills */}
+      {healthStatus && (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+          <span
+            className="px-3 py-1 rounded-full flex items-center gap-1.5"
+            style={{
+              background: healthStatus.providers?.google_safe_browsing?.configured
+                ? 'rgba(94,230,168,0.12)'
+                : 'rgba(196,178,255,0.08)',
+              border: `1px solid ${
+                healthStatus.providers?.google_safe_browsing?.configured
+                  ? 'rgba(94,230,168,0.34)'
+                  : 'rgba(196,178,255,0.18)'
+              }`,
+              color: healthStatus.providers?.google_safe_browsing?.configured ? '#5EE6A8' : 'rgba(236,232,255,0.68)',
+            }}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Google Safe Browsing:{' '}
+            {healthStatus.providers?.google_safe_browsing?.configured ? 'Active' : 'Unconfigured'}
+          </span>
+
+          <span
+            className="px-3 py-1 rounded-full flex items-center gap-1.5"
+            style={{
+              background: healthStatus.providers?.virustotal?.configured
+                ? 'rgba(0,229,255,0.12)'
+                : 'rgba(196,178,255,0.08)',
+              border: `1px solid ${
+                healthStatus.providers?.virustotal?.configured
+                  ? 'rgba(0,229,255,0.34)'
+                  : 'rgba(196,178,255,0.18)'
+              }`,
+              color: healthStatus.providers?.virustotal?.configured ? '#00E5FF' : 'rgba(236,232,255,0.68)',
+            }}
+          >
+            <Server className="w-3.5 h-3.5" />
+            VirusTotal: {healthStatus.providers?.virustotal?.configured ? 'Active' : 'Optional'}
+          </span>
+
+          <span
+            className="px-3 py-1 rounded-full flex items-center gap-1.5"
+            style={{
+              background: 'rgba(111,120,255,0.14)',
+              border: '1px solid rgba(111,120,255,0.32)',
+              color: '#A78BFA',
+            }}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            Authoritative RDAP + WHOIS: Active
+          </span>
+        </div>
+      )}
+
+      {/* URL Input Console */}
+      <div className="tl-glass-card p-5 sm:p-6 space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleAnalyze()
+          }}
+          className="flex flex-col sm:flex-row gap-3"
+        >
+          <div className="relative flex-1">
+            <Link2 className="w-4 h-4 text-[#00E5FF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={urlInput}
+              onChange={(e) => {
+                setUrlInput(e.target.value)
+                setError('')
+              }}
+              placeholder="Paste URL safely without visiting (e.g. https://paypa1-verify.xyz/login)"
+              disabled={loading}
+              className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-mono text-[#F4F2FF] placeholder-[rgba(236,232,255,0.38)] focus:outline-none focus:border-[#00E5FF]/55 transition-colors"
+              style={{
+                background: 'rgba(13,8,48,0.72)',
+                border: error ? '1px solid #FF5B78' : '1px solid rgba(196,178,255,0.18)',
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !urlInput.trim()}
+            className="tl-btn-primary px-6 py-3 text-xs whitespace-nowrap disabled:opacity-40"
+          >
+            <Search className="w-4 h-4" />
+            {loading ? 'Inspecting...' : 'Inspect Link'}
+          </button>
+        </form>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <label className="inline-flex items-center gap-2 text-[rgba(236,232,255,0.75)] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={checkRedirects}
+              onChange={(e) => setCheckRedirects(e.target.checked)}
+              className="accent-[#00E5FF]"
+            />
+            <span>Trace HTTP redirect chain safely (with private-IP SSRF blocking)</span>
+          </label>
+          {error && <span className="font-mono text-[#FF5B78]">{error}</span>}
+        </div>
+
+        {/* Examples */}
+        <div className="pt-3 border-t flex flex-wrap items-center gap-2" style={{ borderColor: 'rgba(196,178,255,0.12)' }}>
+          <span className="text-[11px] font-mono text-[rgba(236,232,255,0.5)]">Sample URLs:</span>
+          {EXAMPLE_URLS.map((ex, i) => {
+            const label = typeof ex === 'string' ? ex : ex.label || ex.url
+            const value = typeof ex === 'string' ? ex : ex.url
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  setUrlInput(value)
+                  setError('')
+                }}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-mono text-[rgba(236,232,255,0.74)] hover:text-[#00E5FF] transition-colors"
+                style={{
+                  background: 'rgba(13,8,48,0.55)',
+                  border: '1px solid rgba(196,178,255,0.14)',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+          {urlInput && (
+            <button
+              type="button"
+              onClick={() => {
+                setUrlInput('')
+                setResult(null)
+                setError('')
+              }}
+              className="ml-auto text-[11px] font-mono text-[rgba(236,232,255,0.55)] hover:text-[#FF5B78] flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> Clear
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Security Engine Readiness Badges */}
-      {healthStatus && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-400 font-medium">Security Subsystems:</span>
-          <span
-            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-            style={{
-              background: healthStatus.providers?.google_safe_browsing?.configured ? '#10B98118' : '#64748B18',
-              border: `1px solid ${healthStatus.providers?.google_safe_browsing?.configured ? '#10B98144' : '#64748B33'}`,
-              color: healthStatus.providers?.google_safe_browsing?.configured ? '#34D399' : '#94A3B8'
-            }}
+      {/* Animated Scanning Beam State */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="tl-glass-card p-10 relative overflow-hidden flex flex-col items-center justify-center text-center gap-4"
           >
-            <Shield size={12} /> Google Safe Browsing: {healthStatus.providers?.google_safe_browsing?.configured ? 'Active' : 'Unconfigured'}
-          </span>
-          <span
-            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-            style={{
-              background: healthStatus.providers?.virustotal?.configured ? '#10B98118' : '#64748B18',
-              border: `1px solid ${healthStatus.providers?.virustotal?.configured ? '#10B98144' : '#64748B33'}`,
-              color: healthStatus.providers?.virustotal?.configured ? '#34D399' : '#94A3B8'
-            }}
-          >
-            <Server size={12} /> VirusTotal: {healthStatus.providers?.virustotal?.configured ? 'Active' : 'Optional'}
-          </span>
-          <span
-            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-            style={{ background: '#10B98118', border: '1px solid #10B98144', color: '#34D399' }}
-          >
-            <Lock size={12} /> Protocol & Pattern Heuristics: Active
-          </span>
-          <span
-            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-            style={{ background: '#06B6D418', border: '1px solid #06B6D444', color: '#22D3EE' }}
-          >
-            <Globe size={12} /> IANA RDAP Domain Age: Active
-          </span>
-          <span
-            className="px-2.5 py-1 rounded-md flex items-center gap-1.5"
-            style={{ background: '#8B5CF618', border: '1px solid #8B5CF644', color: '#A78BFA' }}
-          >
-            <Lock size={12} /> SSRF Guard: Active
-          </span>
-        </div>
-      )}
-
-      {/* Input Box */}
-      {!result && (
-        <Card>
-          <label htmlFor="url-input" className="block text-sm font-medium mb-2 text-slate-300">
-            Submit Target URL to Inspect
-          </label>
-
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-cyan-400">
-                <Link2 size={16} />
-              </span>
-              <input
-                id="url-input"
-                type="url"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="https://example.com/suspicious-link"
-                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm transition-colors text-slate-100"
-                style={{
-                  background: '#121A2B',
-                  border: error ? '1px solid #F87171' : '1px solid #1E2D45',
-                  outline: 'none',
-                }}
-                disabled={loading}
-              />
+            <motion.div
+              aria-hidden="true"
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute top-0 left-0 h-0.5 w-1/2"
+              style={{ background: 'linear-gradient(90deg, transparent, #00E5FF, #6F78FF, transparent)' }}
+            />
+            <Activity className="w-10 h-10 text-[#00E5FF] animate-pulse" />
+            <div>
+              <p className="font-display font-semibold text-base text-[#F4F2FF]">
+                Running Multi-Layer URL Inspection
+              </p>
+              <p className="text-xs font-mono text-[rgba(236,232,255,0.58)] mt-1">
+                Querying authoritative RDAP records, lookalike heuristics, Safe Browsing &amp; VirusTotal...
+              </p>
             </div>
-            <button
-              onClick={() => handleAnalyze()}
-              disabled={loading || !input.trim()}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 flex-shrink-0 cursor-pointer text-slate-950 font-display"
-              style={{ background: 'linear-gradient(135deg, #22D3EE, #818CF8)' }}
-            >
-              {loading ? <Spinner size={16} color="#0B1020" /> : <Link2 size={16} />}
-              {loading ? 'Inspecting…' : 'Analyze URL'}
-            </button>
-          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-xs text-slate-500">Supports banking links, shortened URLs, social media forwards, and direct hostnames.</span>
-            <button
-              onClick={handleClear}
-              disabled={loading || (!input && !result)}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-rose-400 transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <Trash2 size={12} /> Clear
-            </button>
-          </div>
-          {error && <p className="mt-2 text-xs text-rose-400 font-medium" role="alert">{error}</p>}
-
-          {/* Example URLs */}
-          <div className="mt-5 pt-4 border-t border-slate-800">
-            <p className="text-xs font-semibold text-slate-400 mb-2">Try real test vectors:</p>
-            <div className="flex flex-wrap gap-2">
-              {EXAMPLE_URLS.map(u => (
-                <button
-                  key={u}
-                  onClick={() => {
-                    setInput(u)
-                    handleAnalyze(u)
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-lg transition-all text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 cursor-pointer"
-                  style={{ background: '#121A2B', border: '1px solid #1E2D45' }}
-                >
-                  {u.length > 38 ? u.slice(0, 38) + '…' : u}
-                </button>
-              ))}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Loading state */}
-      {loading && (
-        <Card className="flex flex-col items-center justify-center py-12 gap-4">
-          <Spinner size={42} color="#22D3EE" />
-          <div className="text-center space-y-1">
-            <p className="text-sm font-semibold text-slate-200">Executing Deep URL Threat Intelligence Pipeline…</p>
-            <p className="text-xs text-slate-500">
-              Protocol verification • Safe Browsing & VirusTotal • Heuristic pattern extraction • RDAP domain age • SSRF defense
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {/* Full Results Display */}
+      {/* Results View */}
       {result && !loading && (
-        <div className="flex flex-col gap-6 animate-slide-up">
-          {result.isFallback && <DemoBanner text="Live backend offline. Demonstrating with local heuristics." />}
-
-          {/* 1. Header Overview & Risk Gauge */}
-          <Card>
-            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-              <RiskGauge score={result.score} level={result.level} />
-              <div className="flex-1 min-w-0 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-display font-bold text-xl text-slate-100 flex items-center gap-2">
-                    {result.level === 'HIGH' && <ShieldAlert className="text-rose-400" size={22} />}
-                    {result.level === 'MEDIUM' && <AlertTriangle className="text-amber-400" size={22} />}
-                    {result.level === 'LOW' && <ShieldCheck className="text-emerald-400" size={22} />}
-                    URL Security Evaluation
-                  </h2>
-                  {result.execution_time_ms && (
-                    <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                      <Clock size={12} /> {result.execution_time_ms} ms
-                    </span>
-                  )}
-                </div>
-
-                {/* Analyzed URL Box with Copy */}
-                <div className="px-3 py-2 rounded-lg flex items-center justify-between gap-2" style={{ background: '#121A2B', border: '1px solid #1E2D45' }}>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Analyzed Target</p>
-                    <p className="text-xs font-mono text-cyan-300 truncate">{result.url}</p>
-                  </div>
-                  <button
-                    onClick={() => handleCopyUrl(result.url)}
-                    className="p-1.5 rounded bg-slate-800 text-slate-300 hover:text-cyan-400 transition-colors text-xs flex items-center gap-1 cursor-pointer flex-shrink-0"
-                    title="Copy URL"
-                  >
-                    {copied ? <Check size={13} className="text-emerald-400" /> : <ExternalLink size={13} />}
-                  </button>
-                </div>
-
-                {/* Summary */}
-                <div className="space-y-1">
-                  <p className="text-sm text-slate-200 font-medium leading-relaxed">{result.summary}</p>
-                  <p className="text-xs text-slate-500 italic">{result.security_disclaimer}</p>
-                </div>
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-5"
+        >
+          {/* Risk Score + Target Summary */}
+          <div className="tl-glass-card p-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            <div className="md:col-span-4 flex flex-col items-center">
+              <RiskGauge score={result.score ?? 0} level={normalizeRiskLevel(result.level)} size={156} />
+              <div className="mt-3">
+                <RiskBadge level={normalizeRiskLevel(result.level)} />
               </div>
+              {result.execution_time_ms && (
+                <p className="mt-2 text-[11px] font-mono text-[rgba(236,232,255,0.55)] flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> {result.execution_time_ms} ms
+                </p>
+              )}
             </div>
-          </Card>
 
-          {/* 2. Grid: Domain Intelligence & Threat Intelligence */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Domain Intelligence Card */}
-            <Card>
-              <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-800">
-                <Globe size={18} className="text-cyan-400" />
-                <h3 className="font-semibold text-sm text-slate-100">Domain & Protocol Intelligence</h3>
+            <div className="md:col-span-8 space-y-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {result.level === 'HIGH' && <ShieldAlert className="text-[#FF5B78]" size={20} />}
+                  {result.level === 'MEDIUM' && <AlertTriangle className="text-[#FFBF69]" size={20} />}
+                  {result.level === 'LOW' && <ShieldCheck className="text-[#5EE6A8]" size={20} />}
+                  <h2
+                    className="font-display text-lg sm:text-xl font-bold"
+                    style={{ color: riskColor(normalizeRiskLevel(result.level)) }}
+                  >
+                    {result.level} RISK ASSESSMENT
+                  </h2>
+                </div>
               </div>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Hostname:</span>
-                  <span className="font-mono text-slate-200">{result.domain_intelligence?.hostname || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Transport Protocol:</span>
-                  <span className={`font-semibold ${result.domain_intelligence?.is_https ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {result.domain_intelligence?.is_https ? 'HTTPS Encrypted' : 'Plain HTTP (Unencrypted)'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Root Domain / TLD:</span>
-                  <span className="font-mono text-slate-200">
-                    {result.domain_intelligence?.root_domain} {result.domain_intelligence?.tld ? `(.${result.domain_intelligence.tld})` : ''}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Domain Age:</span>
-                  <span className={`font-semibold ${result.domain_intelligence?.domain_age?.includes('NEWLY') ? 'text-rose-400' : 'text-slate-200'}`}>
-                    {result.domain_intelligence?.domain_age || 'Not publicly disclosed'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Registrar:</span>
-                  <span className="text-slate-200 truncate max-w-[200px]">{result.domain_intelligence?.registrar || 'Unavailable'}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
-                  <span className="text-slate-400">Type / Encoding:</span>
-                  <span className="text-slate-200">
-                    {result.domain_intelligence?.is_ip ? 'Direct IP Host' : result.domain_intelligence?.is_punycode ? 'Punycode / Homograph' : 'Standard FQDN'}
-                  </span>
-                </div>
-                {result.domain_intelligence?.matched_keywords?.length > 0 && (
-                  <div className="pt-1">
-                    <span className="text-slate-400 block mb-1">Keywords Detected:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {result.domain_intelligence.matched_keywords.map((k, i) => (
-                        <span key={i} className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[10px] border border-rose-500/30">
-                          {k}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {result.domain_intelligence?.is_shortener && (
-                  <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                    Shortened URL service detected. Target masks the ultimate destination.
-                  </div>
-                )}
-              </div>
-            </Card>
 
-            {/* Threat Intelligence Card */}
-            <Card>
-              <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-800">
-                <Shield size={18} className="text-indigo-400" />
-                <h3 className="font-semibold text-sm text-slate-100">Threat Blacklists & Vendor Consensus</h3>
+              <div
+                className="px-3.5 py-2.5 rounded-xl flex items-center justify-between gap-2"
+                style={{ background: 'rgba(13,8,48,0.68)', border: '1px solid rgba(196,178,255,0.16)' }}
+              >
+                <p className="text-xs font-mono text-[#00E5FF] truncate">{result.url}</p>
+                <button
+                  type="button"
+                  onClick={() => handleCopyUrl(result.url)}
+                  className="text-xs font-mono text-[rgba(236,232,255,0.65)] hover:text-[#F4F2FF] flex items-center gap-1 flex-shrink-0"
+                >
+                  {copied ? <CheckCheck className="w-3.5 h-3.5 text-[#5EE6A8]" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
               </div>
-              <div className="space-y-4 text-xs">
-                {/* Google Safe Browsing */}
-                <div className="p-3 rounded-lg" style={{ background: '#121A2B', border: '1px solid #1E2D45' }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                      Google Safe Browsing v4
-                    </span>
-                    <span
-                      className="px-2 py-0.5 rounded text-[10px] font-bold"
-                      style={{
-                        background: result.threat_intelligence?.google_safe_browsing?.match_found ? '#EF444422' : '#10B98122',
-                        color: result.threat_intelligence?.google_safe_browsing?.match_found ? '#F87171' : '#34D399',
-                        border: `1px solid ${result.threat_intelligence?.google_safe_browsing?.match_found ? '#EF444444' : '#10B98144'}`
-                      }}
-                    >
-                      {result.threat_intelligence?.google_safe_browsing?.match_found
-                        ? 'THREAT DETECTED'
-                        : result.threat_intelligence?.google_safe_browsing?.configured
-                        ? 'NO THREAT MATCH'
-                        : 'KEY UNCONFIGURED'}
-                    </span>
-                  </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
-                    {result.threat_intelligence?.google_safe_browsing?.summary || 'Safe Browsing check performed.'}
-                  </p>
-                  <p className="text-slate-500 text-[10px] mt-1 italic">
-                    {result.threat_intelligence?.google_safe_browsing?.disclaimer}
-                  </p>
-                </div>
 
-                {/* VirusTotal */}
-                <div className="p-3 rounded-lg" style={{ background: '#121A2B', border: '1px solid #1E2D45' }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-semibold text-slate-200">VirusTotal Multi-Engine Reputation</span>
-                    <span
-                      className="px-2 py-0.5 rounded text-[10px] font-bold"
-                      style={{
-                        background: result.threat_intelligence?.virustotal?.is_flagged ? '#EF444422' : '#3B82F622',
-                        color: result.threat_intelligence?.virustotal?.is_flagged ? '#F87171' : '#60A5FA',
-                        border: `1px solid ${result.threat_intelligence?.virustotal?.is_flagged ? '#EF444444' : '#3B82F644'}`
-                      }}
-                    >
-                      {result.threat_intelligence?.virustotal?.detection_ratio
-                        ? `${result.threat_intelligence.virustotal.detection_ratio} Engines Flagged`
-                        : result.threat_intelligence?.virustotal?.status === 'not_found'
-                        ? 'Not Yet Indexed'
-                        : result.threat_intelligence?.virustotal?.configured
-                        ? 'Reputation Clean'
-                        : 'KEY OPTIONAL'}
-                    </span>
-                  </div>
-                  <p className="text-slate-400 text-[11px]">
-                    {result.threat_intelligence?.virustotal?.summary || 'Multi-vendor reputation analysis.'}
-                  </p>
-                </div>
-              </div>
-            </Card>
+              <p className="text-sm text-[rgba(236,232,255,0.88)] leading-relaxed">{result.summary}</p>
+
+              <p className="text-[11px] text-[rgba(236,232,255,0.58)] flex items-start gap-1.5 italic">
+                <Info className="w-3.5 h-3.5 text-[#FFBF69] flex-shrink-0 mt-0.5" />
+                <span>
+                  {result.security_disclaimer ||
+                    'Safety note: Absence of a blacklist match does not prove a URL is 100% safe. Treat risk scores as technical assessments, not validated probabilities.'}
+                </span>
+              </p>
+            </div>
           </div>
 
-          {/* 3. HTTP Redirect Tracing & SSRF Safety */}
-          {result.redirect_analysis && (
-            <Card>
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Layers size={18} className="text-cyan-400" />
-                  <h3 className="font-semibold text-sm text-slate-100">HTTP Redirect Hop Analysis & SSRF Defense</h3>
+          {/* Domain & RDAP Intelligence + Threat Intel */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Domain & RDAP Intelligence */}
+            <div className="tl-glass-card p-5 space-y-3">
+              <h3 className="font-display text-sm font-semibold text-[#F4F2FF] flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#00E5FF]" />
+                Domain &amp; RDAP Intelligence
+              </h3>
+
+              <div className="divide-y text-xs" style={{ borderColor: 'rgba(196,178,255,0.1)' }}>
+                <div className="py-2 flex items-center justify-between gap-2">
+                  <span className="text-[rgba(236,232,255,0.6)]">Hostname</span>
+                  <span className="font-mono text-[#F4F2FF] truncate max-w-[60%]">{di?.hostname || 'N/A'}</span>
                 </div>
+
+                <div className="py-2 flex items-center justify-between gap-2">
+                  <span className="text-[rgba(236,232,255,0.6)]">Transport Protocol</span>
+                  <span
+                    className="font-mono font-semibold flex items-center gap-1"
+                    style={{ color: di?.is_https ? '#5EE6A8' : '#FF5B78' }}
+                  >
+                    {di?.is_https ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                    {di?.is_https ? 'HTTPS Encrypted' : 'Plain HTTP (Unencrypted)'}
+                  </span>
+                </div>
+
+                <div className="py-2 flex items-center justify-between gap-2">
+                  <span className="text-[rgba(236,232,255,0.6)]">Root Domain &amp; TLD</span>
+                  <span className="font-mono text-[#F4F2FF]">
+                    {di?.root_domain || '—'} {di?.tld ? `(.${di.tld})` : ''}
+                  </span>
+                </div>
+
+                <div className="py-2 flex items-center justify-between gap-2">
+                  <span className="text-[rgba(236,232,255,0.6)]">Domain Age</span>
+                  <span
+                    className="font-mono font-semibold text-right"
+                    style={{
+                      color: di?.domain_age?.includes('NEWLY') ? '#FF5B78' : '#F4F2FF',
+                    }}
+                  >
+                    {di?.domain_age || 'Not publicly disclosed'}
+                  </span>
+                </div>
+
+                {di?.registration_date && (
+                  <div className="py-2 flex items-center justify-between gap-2">
+                    <span className="text-[rgba(236,232,255,0.6)]">Registration Date</span>
+                    <span className="font-mono text-[#00E5FF]">
+                      {String(di.registration_date).slice(0, 10)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="py-2 flex items-center justify-between gap-2">
+                  <span className="text-[rgba(236,232,255,0.6)]">Registrar</span>
+                  <span
+                    title={di?.registrar || 'Unavailable'}
+                    className="font-mono text-[#F4F2FF] truncate max-w-[60%] text-right"
+                  >
+                    {di?.registrar || 'Unavailable'}
+                  </span>
+                </div>
+
+                <div className="py-2 flex items-center justify-between gap-2">
+                  <span className="text-[rgba(236,232,255,0.6)]">Host Structure</span>
+                  <span className="font-mono text-[#A78BFA]">
+                    {di?.is_ip
+                      ? 'Direct IP Host'
+                      : di?.is_punycode
+                      ? 'Punycode / Homograph'
+                      : 'Standard FQDN'}
+                  </span>
+                </div>
+              </div>
+
+              {di?.matched_keywords?.length > 0 && (
+                <div className="pt-2">
+                  <p className="text-[11px] font-mono text-[#FFBF69] mb-1.5">Suspicious Keywords in URL:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {di.matched_keywords.map((k, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded text-[11px] font-mono bg-[#FF5B78]/12 text-[#FF5B78] border border-[#FF5B78]/30"
+                      >
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {di?.is_shortener && (
+                <div className="p-2.5 rounded-xl text-xs font-mono text-[#FFBF69] bg-[#FFBF69]/10 border border-[#FFBF69]/30">
+                  Shortened URL detected — true destination is masked until traced.
+                </div>
+              )}
+            </div>
+
+            {/* External Threat Intelligence Cards */}
+            <div className="tl-glass-card p-5 space-y-4">
+              <h3 className="font-display text-sm font-semibold text-[#F4F2FF] flex items-center gap-2">
+                <Server className="w-4 h-4 text-[#A78BFA]" />
+                External Threat Intelligence
+              </h3>
+
+              {/* Google Safe Browsing */}
+              <div
+                className="p-4 rounded-xl space-y-2"
+                style={{ background: 'rgba(13,8,48,0.6)', border: '1px solid rgba(196,178,255,0.14)' }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-[#F4F2FF]">Google Safe Browsing</span>
+                  <span
+                    className="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+                    style={{
+                      background: gs?.match_found
+                        ? 'rgba(255,91,120,0.16)'
+                        : gsConfigured
+                        ? 'rgba(94,230,168,0.14)'
+                        : 'rgba(255,191,105,0.14)',
+                      color: gs?.match_found ? '#FF5B78' : gsConfigured ? '#5EE6A8' : '#FFBF69',
+                      border: `1px solid ${
+                        gs?.match_found
+                          ? 'rgba(255,91,120,0.35)'
+                          : gsConfigured
+                          ? 'rgba(94,230,168,0.32)'
+                          : 'rgba(255,191,105,0.32)'
+                      }`,
+                    }}
+                  >
+                    {gs?.match_found
+                      ? 'THREAT MATCH'
+                      : gsConfigured
+                      ? 'NO MATCH FOUND'
+                      : 'UNAVAILABLE / NOT CONFIGURED'}
+                  </span>
+                </div>
+                <p className="text-xs text-[rgba(236,232,255,0.75)]">
+                  {gs?.summary || 'Safe Browsing check status recorded.'}
+                </p>
+                {gs?.disclaimer && (
+                  <p className="text-[11px] text-[rgba(236,232,255,0.52)] italic">{gs.disclaimer}</p>
+                )}
+              </div>
+
+              {/* VirusTotal */}
+              <div
+                className="p-4 rounded-xl space-y-2"
+                style={{ background: 'rgba(13,8,48,0.6)', border: '1px solid rgba(196,178,255,0.14)' }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-[#F4F2FF]">VirusTotal Multi-Vendor</span>
+                  <span
+                    className="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+                    style={{
+                      background: vt?.is_flagged
+                        ? 'rgba(255,91,120,0.16)'
+                        : vtConfigured
+                        ? 'rgba(0,229,255,0.14)'
+                        : 'rgba(255,191,105,0.14)',
+                      color: vt?.is_flagged ? '#FF5B78' : vtConfigured ? '#00E5FF' : '#FFBF69',
+                      border: `1px solid ${
+                        vt?.is_flagged
+                          ? 'rgba(255,91,120,0.35)'
+                          : vtConfigured
+                          ? 'rgba(0,229,255,0.32)'
+                          : 'rgba(255,191,105,0.32)'
+                      }`,
+                    }}
+                  >
+                    {vt?.detection_ratio
+                      ? `${vt.detection_ratio} Engines Flagged`
+                      : vt?.status === 'not_found'
+                      ? 'NOT IN INDEX'
+                      : vtConfigured
+                      ? 'NO FLAGS OBSERVED'
+                      : 'UNAVAILABLE / OPTIONAL'}
+                  </span>
+                </div>
+                <p className="text-xs text-[rgba(236,232,255,0.75)]">
+                  {vt?.summary || 'Multi-vendor URL reputation analysis.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Redirect & SSRF Trace */}
+          {result.redirect_analysis && (
+            <div className="tl-glass-card p-5 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="font-display text-sm font-semibold text-[#F4F2FF] flex items-center gap-2">
+                  <ArrowRight className="w-4 h-4 text-[#00E5FF]" />
+                  Redirect Path &amp; SSRF Protection
+                </h3>
                 <span
-                  className="px-2.5 py-0.5 rounded text-xs font-semibold"
+                  className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold"
                   style={{
-                    background: result.redirect_analysis.ssrf_blocked ? '#EF444422' : '#10B98122',
-                    color: result.redirect_analysis.ssrf_blocked ? '#F87171' : '#34D399',
-                    border: `1px solid ${result.redirect_analysis.ssrf_blocked ? '#EF444444' : '#10B98144'}`
+                    background: result.redirect_analysis.ssrf_blocked
+                      ? 'rgba(255,91,120,0.16)'
+                      : 'rgba(94,230,168,0.14)',
+                    color: result.redirect_analysis.ssrf_blocked ? '#FF5B78' : '#5EE6A8',
+                    border: `1px solid ${
+                      result.redirect_analysis.ssrf_blocked
+                        ? 'rgba(255,91,120,0.35)'
+                        : 'rgba(94,230,168,0.32)'
+                    }`,
                   }}
                 >
                   {result.redirect_analysis.ssrf_blocked ? 'SSRF BLOCKED' : 'SSRF VALIDATED SAFE'}
                 </span>
               </div>
-
-              <div className="space-y-3 text-xs">
-                <p className="text-slate-400">{result.redirect_analysis.summary}</p>
-
-                {result.redirect_analysis.hops && result.redirect_analysis.hops.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    {result.redirect_analysis.hops.map((h, i) => (
-                      <div
-                        key={i}
-                        className="p-2.5 rounded-lg flex items-start gap-2.5 font-mono text-[11px]"
-                        style={{ background: '#121A2B', border: '1px solid #1E2D45' }}
-                      >
-                        <CornerDownRight size={14} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-0.5">
-                            <span className="font-bold text-slate-300">Hop #{h.hop} ({h.status_code || 'CONN'})</span>
-                            {h.resolved_ip && <span className="text-slate-500">IP: {h.resolved_ip}</span>}
-                          </div>
-                          <p className="text-slate-400 truncate">{h.to_url || h.url || h.from_url}</p>
-                          {h.blocked && <p className="text-rose-400 font-semibold mt-1">Blocked: {h.block_reason}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+              <p className="text-xs text-[rgba(236,232,255,0.75)]">{result.redirect_analysis.summary}</p>
+              {result.redirect_analysis.hops?.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  {result.redirect_analysis.hops.map((h, i) => (
+                    <div
+                      key={i}
+                      className="p-2.5 rounded-lg text-[11px] font-mono flex items-center justify-between gap-2"
+                      style={{ background: 'rgba(13,8,48,0.6)', border: '1px solid rgba(196,178,255,0.1)' }}
+                    >
+                      <span className="text-[#00E5FF] truncate">{h.url || h}</span>
+                      {h.status_code && <span className="text-[#A78BFA]">HTTP {h.status_code}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
-          {/* 4. Concrete Suspicious Indicators */}
-          <Card>
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-800">
-              <AlertTriangle size={18} className="text-amber-400" />
-              <h3 className="font-semibold text-sm text-slate-100">
+          {/* Findings + AI Explanation + Recommendations */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="tl-glass-card p-5 space-y-3">
+              <h3 className="font-display text-sm font-semibold text-[#F4F2FF]">
                 {result.warnings?.length > 0
                   ? `Security Findings & Indicators (${result.warnings.length})`
-                  : 'Security Findings & Indicators'}
+                  : 'Security Findings'}
               </h3>
+              {result.warnings?.length > 0 ? (
+                <ul className="space-y-2 text-xs text-[rgba(236,232,255,0.82)]">
+                  {result.warnings.map((w, idx) => (
+                    <li
+                      key={idx}
+                      className="p-2.5 rounded-xl flex items-start gap-2"
+                      style={{ background: 'rgba(255,91,120,0.08)', border: '1px solid rgba(255,91,120,0.2)' }}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-[#FFBF69] flex-shrink-0 mt-0.5" />
+                      <span>{w.reason || w.detail || w}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[rgba(236,232,255,0.62)]">
+                  No major heuristic phishing flags triggered in URL structure.
+                </p>
+              )}
             </div>
 
-            {result.warnings?.length > 0 ? (
-              <div className="space-y-2">
-                {result.warnings.map((w, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-lg flex items-start gap-3"
-                    style={{ background: '#EF444411', border: '1px solid #EF444433' }}
+            <div className="tl-glass-card p-5 space-y-3">
+              <h3 className="font-display text-sm font-semibold text-[#F4F2FF]">
+                Recommended Next Steps
+              </h3>
+              <ul className="space-y-2 text-xs text-[rgba(236,232,255,0.82)]">
+                {(result.recommendations || []).map((rec, i) => (
+                  <li
+                    key={i}
+                    className="p-2.5 rounded-xl flex items-start gap-2"
+                    style={{ background: 'rgba(13,8,48,0.55)', border: '1px solid rgba(196,178,255,0.12)' }}
                   >
-                    <AlertCircle size={16} className="text-rose-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-slate-200 leading-relaxed">{w.reason || w}</p>
-                  </div>
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#5EE6A8] flex-shrink-0 mt-0.5" />
+                    <span>{rec}</span>
+                  </li>
                 ))}
-              </div>
-            ) : (
-              <div className="p-3 rounded-lg flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-                <CheckCircle2 size={16} /> No obvious suspicious indicators found. Note: Absence of a match does not guarantee 100% safety.
-              </div>
-            )}
-          </Card>
-
-          {/* 5. AI Threat Explanation */}
-          {result.ai_explanation && (
-            <Card>
-              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-800">
-                <Cpu size={18} className="text-indigo-400" />
-                <h3 className="font-semibold text-sm text-slate-100">AI Threat Intelligence Narrative</h3>
-              </div>
-              <div className="space-y-3 text-xs leading-relaxed text-slate-300">
-                {result.ai_explanation.threat_explanation && (
-                  <div>
-                    <h4 className="font-semibold text-slate-200 mb-1">Threat Analysis:</h4>
-                    <p className="text-slate-300">{result.ai_explanation.threat_explanation}</p>
-                  </div>
-                )}
-                {result.ai_explanation.domain_evaluation && (
-                  <div>
-                    <h4 className="font-semibold text-slate-200 mb-1">Domain Evaluation:</h4>
-                    <p className="text-slate-300">{result.ai_explanation.domain_evaluation}</p>
-                  </div>
-                )}
-                {result.ai_explanation.limitations && result.ai_explanation.limitations.length > 0 && (
-                  <div className="pt-2 text-slate-500 text-[11px] italic">
-                    Note: {result.ai_explanation.limitations.join(' ')}
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
-
-          {/* 6. Recommended Actions */}
-          <Card>
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-800">
-              <CheckCircle2 size={18} className="text-emerald-400" />
-              <h3 className="font-semibold text-sm text-slate-100">Recommended Protective Measures</h3>
+              </ul>
             </div>
-            <ul className="space-y-2 text-xs">
-              {(result.recommendations || []).map((rec, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-slate-300">
-                  <span className="text-cyan-400 font-bold">•</span>
-                  <span>{rec}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          {/* Re-analyze Action Button */}
-          <div className="pt-2">
-            <button
-              onClick={handleAnalyzeAnother}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all cursor-pointer text-cyan-300 hover:bg-cyan-500/10"
-              style={{ background: '#1E2D45', border: '1px solid #22D3EE44' }}
-            >
-              <RefreshCw size={15} /> Inspect Another URL
-            </button>
           </div>
-        </div>
+
+          {result.ai_explanation && (
+            <div className="tl-glass-card p-5 space-y-3">
+              <h3 className="font-display text-sm font-semibold text-[#F4F2FF] flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-[#A78BFA]" />
+                AI Domain &amp; Threat Interpretation
+              </h3>
+              {result.ai_explanation.threat_explanation && (
+                <p className="text-xs text-[rgba(236,232,255,0.84)] leading-relaxed">
+                  {result.ai_explanation.threat_explanation}
+                </p>
+              )}
+              {result.ai_explanation.domain_evaluation && (
+                <p className="text-xs text-[rgba(236,232,255,0.75)] leading-relaxed">
+                  {result.ai_explanation.domain_evaluation}
+                </p>
+              )}
+              {result.ai_explanation.limitations?.length > 0 && (
+                <p className="text-[11px] font-mono text-[rgba(236,232,255,0.52)]">
+                  Limitations: {result.ai_explanation.limitations.join(' ')}
+                </p>
+              )}
+            </div>
+          )}
+        </motion.div>
       )}
     </div>
   )

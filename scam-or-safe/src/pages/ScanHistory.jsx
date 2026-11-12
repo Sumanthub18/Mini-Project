@@ -1,23 +1,44 @@
 import { useState, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import {
-  Search, Trash2, ExternalLink, X, AlertTriangle, ShieldCheck,
-  RefreshCw, Star, Info, ChevronRight
+  Search,
+  Trash2,
+  RefreshCw,
+  X,
+  Star,
+  AlertTriangle,
+  ExternalLink,
+  History,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useScanHistory } from '../hooks/useScanHistory.jsx'
 import { submitScanFeedback } from '../services/scanDatabaseService.js'
 import { useToast } from '../hooks/useToast.jsx'
-import { SectionHeader, Card, EmptyState, RiskBadge } from '../components/ResultComponents.jsx'
-import { formatDateTime, truncate, scanTypeLabel, scanTypeIcon, riskColor } from '../utils/helpers.js'
+import { SectionHeader, RiskBadge, EmptyState } from '../components/ResultComponents.jsx'
+import {
+  formatDateTime,
+  truncate,
+  riskColor,
+  scanTypeLabel,
+  scanTypeIcon,
+  normalizeRiskLevel,
+} from '../utils/helpers.js'
 
-const TYPES = ['ALL', 'SCAM', 'NEWS', 'URL']
+const TYPES = ['ALL', 'SCAM', 'NEWS', 'URL', 'MULTIMODAL']
 const LEVELS = ['ALL', 'HIGH', 'MEDIUM', 'LOW']
-const LEVEL_COLORS = { HIGH: '#ff006e', MEDIUM: '#ffb800', LOW: '#00ff9f' }
+const PAGE_SIZE = 10
+
+const LEVEL_COLORS = {
+  ALL: '#00E5FF',
+  HIGH: '#FF5B78',
+  MEDIUM: '#FFBF69',
+  LOW: '#5EE6A8',
+}
 
 export default function ScanHistory() {
-  const { user, isConfigured } = useAuth()
+  const { user } = useAuth()
   const { history, loading, error, deleteScanItem, clearHistory, refreshHistory } = useScanHistory()
-  const { addToast } = useToast()
+  const { toast, addToast } = useToast()
 
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('ALL')
@@ -27,183 +48,169 @@ export default function ScanHistory() {
   const [rating, setRating] = useState(5)
   const [feedbackComment, setFeedbackComment] = useState('')
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
-  const PER_PAGE = 10
+
+  const notify = (msg, type = 'info') => {
+    if (toast?.[type]) toast[type](msg)
+    else if (addToast) addToast(msg, type)
+  }
 
   const filtered = useMemo(() => {
-    return history.filter(s => {
-      const sType = s.type?.toUpperCase() || ''
-      const matchType = typeFilter === 'ALL' || sType === typeFilter
-      const sLevel = s.result?.level?.toUpperCase() || ''
-      const matchLevel = levelFilter === 'ALL' || sLevel === levelFilter
-      const searchTarget = (s.input || s.result?.summary || '').toLowerCase()
-      const matchSearch = !search.trim() || searchTarget.includes(search.trim().toLowerCase())
-      return matchType && matchLevel && matchSearch
+    const q = search.trim().toLowerCase()
+    return (history || []).filter((scan) => {
+      const scanType = (scan.type || scan.scan_type || '').toUpperCase()
+      const riskLevel = normalizeRiskLevel(
+        scan.result?.level || scan.riskLevel || scan.risk_level || 'low'
+      ).toUpperCase()
+      const content = `${scan.input || ''} ${scan.target || ''} ${scan.summary || ''} ${
+        scan.result?.summary || ''
+      }`.toLowerCase()
+
+      if (typeFilter !== 'ALL' && scanType !== typeFilter) return false
+      if (levelFilter !== 'ALL' && riskLevel !== levelFilter) return false
+      if (q && !content.includes(q)) return false
+      return true
     })
   }, [history, search, typeFilter, levelFilter])
 
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-  const totalPages = Math.ceil(filtered.length / PER_PAGE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const handleSearch = (e) => { setSearch(e.target.value); setPage(1) }
-  const handleTypeFilter = (t) => { setTypeFilter(t); setPage(1) }
-  const handleLevelFilter = (l) => { setLevelFilter(l); setPage(1) }
+  const handleSearch = (e) => {
+    setSearch(e.target.value)
+    setPage(1)
+  }
+  const handleTypeFilter = (t) => {
+    setTypeFilter(t)
+    setPage(1)
+  }
+  const handleLevelFilter = (l) => {
+    setLevelFilter(l)
+    setPage(1)
+  }
 
   const handleDelete = async (scanId, e) => {
     e.stopPropagation()
-    if (window.confirm('Are you sure you want to delete this scan record?')) {
-      await deleteScanItem(scanId)
-      if (selectedScan?.id === scanId) setSelectedScan(null)
-      addToast('Scan record deleted.', 'info')
-    }
+    await deleteScanItem(scanId)
+    if (selectedScan?.id === scanId) setSelectedScan(null)
+    notify('Scan record removed.', 'info')
   }
 
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault()
-    if (!selectedScan?.id || !user?.id) return
+    if (!selectedScan?.id) return
     setFeedbackSubmitting(true)
-
     const { error: fbErr } = await submitScanFeedback({
       scanId: selectedScan.id,
-      userId: user.id,
+      userId: user?.id,
       rating,
       comment: feedbackComment.trim(),
     })
     setFeedbackSubmitting(false)
-
     if (fbErr) {
-      addToast('Failed to record feedback.', 'error')
+      notify(fbErr.message || 'Could not save feedback.', 'error')
     } else {
-      addToast('Feedback saved! Thank you for improving threat intelligence.', 'success')
       setFeedbackComment('')
+      notify('Feedback saved to database.', 'success')
     }
   }
 
   return (
-    <div className="max-w-5xl mx-auto animate-slide-up">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-2 flex-wrap gap-4">
+    <div className="max-w-6xl mx-auto space-y-6 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <SectionHeader
-          title="SCAN HISTORY"
-          subtitle={`// ${history.length} records retrieved from ${isConfigured ? 'Supabase PostgreSQL' : 'session cache'}`}
+          badge="VERIFICATION LOGS"
+          title="Scan History"
+          subtitle="Search, inspect, and manage your recorded scam, fact-check, URL, and multimodal assessments."
         />
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => refreshHistory()}
-            disabled={loading}
-            className="btn-neon px-3 py-2 text-xs font-mono tracking-widest flex items-center gap-1.5"
-            style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> SYNC
+          <button type="button" onClick={refreshHistory} className="tl-btn-ghost text-xs py-2 px-3.5">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
           {history.length > 0 && (
             <button
+              type="button"
               onClick={() => {
-                if (window.confirm('Delete all scan records for your account?')) {
-                  clearHistory()
-                  addToast('Scan history cleared.', 'info')
-                }
+                clearHistory()
+                notify('Session history cleared.', 'info')
               }}
-              className="flex items-center gap-2 px-3 py-2 text-xs font-mono tracking-widest transition-all"
-              style={{
-                background: '#ff006e08',
-                color: '#ff006e88',
-                border: '1px solid #ff006e22',
-                clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#ff006e18'; e.currentTarget.style.color = '#ff006e' }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#ff006e08'; e.currentTarget.style.color = '#ff006e88' }}
+              className="tl-btn-ghost text-xs py-2 px-3.5 hover:text-[#FF5B78]"
             >
-              <Trash2 size={12} /> PURGE ALL
+              <Trash2 size={14} /> Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* RLS Security Notice */}
-      <div
-        className="mb-5 px-4 py-3 text-xs font-mono flex items-center justify-between gap-2"
-        style={{
-          background: '#00d4ff08',
-          border: '1px solid #00d4ff18',
-          color: '#4a6080',
-          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)',
-        }}
-      >
-        <span>
-          <strong style={{ color: '#00d4ff' }}>[ RLS ENFORCED ]</strong> Records strictly isolated to authenticated user <span style={{ color: '#00ff9f' }}>{user?.email || 'authenticated'}</span> via PostgreSQL Row Level Security.
-        </span>
-        <span className="hidden sm:inline" style={{ color: '#00ff9f44' }}>auth.uid() = user_id</span>
-      </div>
-
       {error && (
         <div
-          className="mb-4 p-3 text-xs font-mono text-red-400 bg-red-950/20 border border-red-800/40"
-          style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}
+          className="p-3 rounded-xl text-xs font-mono text-[#FFBF69]"
+          style={{ background: 'rgba(255,191,105,0.1)', border: '1px solid rgba(255,191,105,0.3)' }}
         >
-          // ERROR: {error}
+          {error}
         </div>
       )}
 
-      {/* Filters */}
-      <Card className="mb-5">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#4a6080' }} />
-            <input
-              type="search"
-              value={search}
-              onChange={handleSearch}
-              placeholder="// search scan content or findings…"
-              className="w-full pl-9 pr-4 py-2.5 text-sm font-mono"
-              style={{
-                background: '#050810',
-                border: '1px solid #00ff9f18',
-                color: '#e2e8f0',
-                outline: 'none',
-                clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#00ff9f44'; e.currentTarget.style.boxShadow = '0 0 12px #00ff9f12' }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#00ff9f18'; e.currentTarget.style.boxShadow = 'none' }}
-            />
+      {/* Search & Filters */}
+      <div className="tl-glass-card p-4 sm:p-5 space-y-4">
+        <div className="relative">
+          <Search
+            size={15}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[rgba(236,232,255,0.48)]"
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={handleSearch}
+            placeholder="Search submitted messages, URLs, or summaries..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm text-[#F4F2FF] placeholder-[rgba(236,232,255,0.4)] focus:outline-none focus:border-[#00E5FF]/55"
+            style={{ background: 'rgba(13,8,48,0.68)', border: '1px solid rgba(196,178,255,0.16)' }}
+          />
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {TYPES.map((t) => {
+              const active = typeFilter === t
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => handleTypeFilter(t)}
+                  className="px-3 py-1.5 rounded-xl text-[11px] font-mono transition-all"
+                  style={
+                    active
+                      ? {
+                          background: 'rgba(111,120,255,0.28)',
+                          border: '1px solid rgba(0,229,255,0.45)',
+                          color: '#F4F2FF',
+                        }
+                      : {
+                          background: 'rgba(13,8,48,0.55)',
+                          border: '1px solid rgba(196,178,255,0.14)',
+                          color: 'rgba(236,232,255,0.62)',
+                        }
+                  }
+                >
+                  {t}
+                </button>
+              )
+            })}
           </div>
 
-          {/* Type filter */}
-          <div className="flex gap-1.5 flex-wrap">
-            {TYPES.map(t => (
-              <button
-                key={t}
-                onClick={() => handleTypeFilter(t)}
-                className="px-3 py-1.5 text-xs font-mono tracking-widest transition-all"
-                style={{
-                  background: typeFilter === t ? '#00ff9f12' : '#050810',
-                  color: typeFilter === t ? '#00ff9f' : '#4a6080',
-                  border: typeFilter === t ? '1px solid #00ff9f44' : '1px solid #0f2040',
-                  textShadow: typeFilter === t ? '0 0 8px #00ff9f' : 'none',
-                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* Level filter */}
-          <div className="flex gap-1.5 flex-wrap">
-            {LEVELS.map(l => {
-              const c = LEVEL_COLORS[l] || '#00ff9f'
+          <div className="flex flex-wrap gap-1.5">
+            {LEVELS.map((l) => {
+              const c = LEVEL_COLORS[l] || '#00E5FF'
               const active = levelFilter === l
               return (
                 <button
                   key={l}
+                  type="button"
                   onClick={() => handleLevelFilter(l)}
-                  className="px-3 py-1.5 text-xs font-mono tracking-widest transition-all"
+                  className="px-3 py-1.5 rounded-xl text-[11px] font-mono transition-all"
                   style={{
-                    background: active ? `${c}12` : '#050810',
-                    color: active ? c : '#4a6080',
-                    border: active ? `1px solid ${c}44` : '1px solid #0f2040',
-                    textShadow: active ? `0 0 8px ${c}88` : 'none',
-                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                    background: active ? `${c}20` : 'rgba(13,8,48,0.55)',
+                    border: `1px solid ${active ? `${c}66` : 'rgba(196,178,255,0.14)'}`,
+                    color: active ? c : 'rgba(236,232,255,0.62)',
                   }}
                 >
                   {l === 'ALL' ? 'ALL RISK' : l}
@@ -212,187 +219,192 @@ export default function ScanHistory() {
             })}
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Table */}
+      {/* Table / Empty State */}
       {loading && history.length === 0 ? (
-        <div className="p-12 text-center font-mono text-xs text-slate-500">
-          <RefreshCw size={24} className="animate-spin mx-auto mb-3" style={{ color: '#00ff9f' }} />
-          // QUERYING SUPABASE POSTGRESQL CLUSTER...
+        <div className="tl-glass-card p-12 text-center font-mono text-xs text-[rgba(236,232,255,0.6)]">
+          <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-[#00E5FF]" />
+          Loading scan history...
         </div>
       ) : history.length === 0 ? (
         <EmptyState
-          icon="📋"
-          title="NO SCAN HISTORY"
-          description="// execute a scan from Scam Scanner, Fake News, or URL Checker to populate your database"
+          icon={<History size={28} />}
+          title="No Scan History Yet"
+          description="Run an inspection in Scam Detection, Fake News, URL Safety, or Multimodal AI to populate your verification log."
         />
       ) : filtered.length === 0 ? (
-        <EmptyState icon="🔎" title="NO RESULTS MATCH" description="// try adjusting your search or filter criteria" />
+        <EmptyState
+          icon={<Search size={28} />}
+          title="No Matching Records"
+          description="Try clearing or adjusting your search query and risk filters."
+        />
       ) : (
         <>
-          <div
-            style={{
-              border: '1px solid #00ff9f18',
-              clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Header */}
-            <div
-              className="grid gap-4 px-4 py-3 text-xs font-mono uppercase tracking-widest"
-              style={{
-                background: '#0d1424',
-                color: '#4a6080',
-                gridTemplateColumns: '36px 1fr 100px 100px 140px 40px',
-                borderBottom: '1px solid #00ff9f12',
-              }}
-            >
-              <span style={{ color: '#00ff9f44' }}>#</span>
-              <span>Content / Summary</span>
-              <span>Type</span>
-              <span>Risk</span>
-              <span>Timestamp</span>
-              <span className="text-right">Action</span>
-            </div>
-
-            {/* Rows */}
-            {paginated.map((scan, i) => (
-              <div
-                key={scan.id}
-                onClick={() => setSelectedScan(scan)}
-                className="grid gap-4 px-4 py-3 items-center transition-all cursor-pointer group"
-                style={{
-                  background: i % 2 === 0 ? '#090d1a' : '#050810',
-                  borderTop: '1px solid #00ff9f08',
-                  gridTemplateColumns: '36px 1fr 100px 100px 140px 40px',
-                  color: '#e2e8f0',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#00ff9f08'; e.currentTarget.style.borderTopColor = '#00ff9f22' }}
-                onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? '#090d1a' : '#050810'; e.currentTarget.style.borderTopColor = '#00ff9f08' }}
-              >
-                <span className="text-lg">{scanTypeIcon(scan.type)}</span>
-                <span className="text-sm font-mono truncate group-hover:text-cyan-300 transition-colors" style={{ color: '#94a3b8' }}>
-                  {truncate(scan.input || scan.result?.summary, 60)}
-                </span>
-                <span className="text-xs font-mono tracking-widest" style={{ color: '#4a6080' }}>
-                  {scanTypeLabel(scan.type).toUpperCase()}
-                </span>
-                <span>
-                  {scan.result?.level ? (
-                    <RiskBadge level={scan.result.level} />
-                  ) : (
-                    <span className="text-xs font-mono" style={{ color: '#4a6080' }}>N/A</span>
-                  )}
-                </span>
-                <span className="text-xs font-mono" style={{ color: '#4a6080' }}>
-                  {formatDateTime(scan.timestamp)}
-                </span>
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={(e) => handleDelete(scan.id, e)}
-                    className="p-1 rounded text-slate-500 hover:text-red-400 transition-colors"
-                    title="Delete record"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="tl-glass-card overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[640px]">
+              <thead>
+                <tr
+                  className="border-b text-[11px] font-mono uppercase tracking-wider text-[rgba(236,232,255,0.52)]"
+                  style={{ borderColor: 'rgba(196,178,255,0.14)', background: 'rgba(13,8,48,0.6)' }}
+                >
+                  <th className="py-3 px-4">#</th>
+                  <th className="py-3 px-4">Content / Summary</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Risk</th>
+                  <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-xs" style={{ borderColor: 'rgba(196,178,255,0.08)' }}>
+                {paginated.map((scan) => {
+                  const type = scan.type || scan.scan_type || 'scam'
+                  const level = scan.result?.level || scan.riskLevel || scan.risk_level
+                  const ts = scan.timestamp || scan.created_at
+                  const text = scan.input || scan.target || scan.summary || scan.result?.summary
+                  return (
+                    <tr
+                      key={scan.id}
+                      onClick={() => setSelectedScan(scan)}
+                      className="cursor-pointer hover:bg-white/[0.03] transition-colors"
+                    >
+                      <td className="py-3.5 px-4 text-base">{scanTypeIcon(type)}</td>
+                      <td className="py-3.5 px-4 font-mono text-[rgba(236,232,255,0.85)] max-w-[320px] truncate">
+                        {truncate(text, 64)}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-[#A78BFA] whitespace-nowrap">
+                        {scanTypeLabel(type)}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {level ? <RiskBadge level={level} /> : <span className="text-[rgba(236,232,255,0.45)]">N/A</span>}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-[rgba(236,232,255,0.58)] whitespace-nowrap">
+                        {formatDateTime(ts)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => handleDelete(scan.id, e)}
+                          title="Delete scan"
+                          className="p-1.5 rounded-lg text-[rgba(236,232,255,0.5)] hover:text-[#FF5B78] hover:bg-[#FF5B78]/10 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-3 mt-6">
+            <div className="flex justify-center items-center gap-3">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="btn-neon px-4 py-2 text-xs font-mono tracking-widest disabled:opacity-30"
-                style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+                className="tl-btn-ghost text-xs py-2 px-4 disabled:opacity-35"
               >
-                ← PREV
+                ← Prev
               </button>
-              <span className="text-xs font-mono" style={{ color: '#4a6080' }}>
+              <span className="text-xs font-mono text-[rgba(236,232,255,0.65)]">
                 {page} / {totalPages}
               </span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="btn-neon px-4 py-2 text-xs font-mono tracking-widest disabled:opacity-30"
-                style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+                className="tl-btn-ghost text-xs py-2 px-4 disabled:opacity-35"
               >
-                NEXT →
+                Next →
               </button>
             </div>
           )}
         </>
       )}
 
-      {/* SCAN DETAILS & EVIDENCE MODAL */}
+      {/* Details Modal */}
       {selectedScan && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: '#050810DD', backdropFilter: 'blur(8px)' }}
+          style={{ background: 'rgba(7, 4, 24, 0.8)', backdropFilter: 'blur(10px)' }}
           onClick={() => setSelectedScan(null)}
         >
-          <div
-            className="w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 animate-slide-up relative"
-            style={{
-              background: 'linear-gradient(180deg, #090d1a 0%, #050810 100%)',
-              border: '1px solid #00ff9f33',
-              boxShadow: '0 0 30px #00ff9f15',
-              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-            }}
-            onClick={e => e.stopPropagation()}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 rounded-3xl tl-glass-strong space-y-5"
+            style={{ border: '1px solid rgba(196,178,255,0.25)' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal header */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-800 mb-4">
+            <div className="flex items-start justify-between pb-4 border-b" style={{ borderColor: 'rgba(196,178,255,0.14)' }}>
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xl">{scanTypeIcon(selectedScan.type)}</span>
-                  <h3 className="font-display font-bold text-base tracking-wider" style={{ color: '#00ff9f' }}>
-                    {scanTypeLabel(selectedScan.type).toUpperCase()} VERIFICATION DETAILS
+                  <h3 className="font-display font-bold text-base text-[#F4F2FF]">
+                    {scanTypeLabel(selectedScan.type)} Verification Details
                   </h3>
                 </div>
-                <p className="font-mono text-xs text-slate-500">
-                  ID: {selectedScan.id} · {formatDateTime(selectedScan.timestamp)}
+                <p className="font-mono text-xs text-[rgba(236,232,255,0.55)]">
+                  ID: {selectedScan.id} • {formatDateTime(selectedScan.timestamp)}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedScan(null)}
-                className="p-1 rounded text-slate-400 hover:text-white"
+                className="p-1.5 rounded-lg text-[rgba(236,232,255,0.6)] hover:text-[#F4F2FF]"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Summary Box */}
-            <div className="mb-4 p-3 bg-black/40 border border-slate-800 rounded">
-              <p className="text-xs font-mono text-slate-400 mb-1">// SUBMITTED CONTENT / SUMMARY</p>
-              <p className="text-sm font-mono text-slate-200">{selectedScan.input}</p>
+            <div
+              className="p-4 rounded-2xl space-y-1"
+              style={{ background: 'rgba(13,8,48,0.68)', border: '1px solid rgba(196,178,255,0.14)' }}
+            >
+              <p className="text-[11px] font-mono text-[#00E5FF]">Submitted Content / Target</p>
+              <p className="text-xs sm:text-sm font-mono text-[#F4F2FF] whitespace-pre-wrap break-words">
+                {selectedScan.input || selectedScan.target || selectedScan.summary}
+              </p>
             </div>
 
-            {/* Risk rating banner */}
-            <div className="flex items-center justify-between p-3 mb-4 rounded" style={{ background: '#00ff9f0a', border: '1px solid #00ff9f22' }}>
+            <div
+              className="flex items-center justify-between p-4 rounded-2xl"
+              style={{ background: 'rgba(111,120,255,0.12)', border: '1px solid rgba(141,148,255,0.28)' }}
+            >
               <div>
-                <p className="text-xs font-mono text-slate-400">RISK VERDICT</p>
-                <p className="font-display font-bold text-lg" style={{ color: riskColor(selectedScan.result?.level || 'LOW') }}>
-                  {selectedScan.result?.level || 'LOW'} RISK {selectedScan.result?.score != null && `(${selectedScan.result.score}/100)`}
+                <p className="text-[11px] font-mono text-[rgba(236,232,255,0.6)]">Assessment Verdict</p>
+                <p
+                  className="font-display font-bold text-lg"
+                  style={{
+                    color: riskColor(selectedScan.result?.level || selectedScan.riskLevel || 'low'),
+                  }}
+                >
+                  {(selectedScan.result?.level || selectedScan.riskLevel || 'LOW').toUpperCase()} RISK{' '}
+                  {(selectedScan.result?.score ?? selectedScan.riskScore) != null &&
+                    `(${selectedScan.result?.score ?? selectedScan.riskScore}/100)`}
                 </p>
               </div>
-              <RiskBadge level={selectedScan.result?.level || 'LOW'} />
+              <RiskBadge level={selectedScan.result?.level || selectedScan.riskLevel || 'low'} />
             </div>
 
-            {/* Findings List */}
             {selectedScan.findings?.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-mono text-slate-400 mb-2">// SCAN FINDINGS ({selectedScan.findings.length})</p>
-                <div className="flex flex-col gap-2">
+              <div className="space-y-2">
+                <p className="text-xs font-mono text-[rgba(236,232,255,0.65)]">
+                  Scan Findings ({selectedScan.findings.length})
+                </p>
+                <div className="space-y-2">
                   {selectedScan.findings.map((f, idx) => (
-                    <div key={idx} className="p-2.5 bg-black/30 border border-slate-800/80 rounded flex items-start gap-2">
-                      <AlertTriangle size={14} className="mt-0.5 text-amber-400 flex-shrink-0" />
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl flex items-start gap-2.5 text-xs"
+                      style={{ background: 'rgba(13,8,48,0.6)', border: '1px solid rgba(196,178,255,0.12)' }}
+                    >
+                      <AlertTriangle size={14} className="mt-0.5 text-[#FFBF69] flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-mono font-bold text-slate-200">{f.title || f.phrase}</p>
-                        <p className="text-xs font-mono text-slate-400">{f.description || f.reason}</p>
+                        <p className="font-semibold text-[#F4F2FF]">{f.title || f.phrase}</p>
+                        <p className="text-[rgba(236,232,255,0.7)]">{f.description || f.reason}</p>
                       </div>
                     </div>
                   ))}
@@ -400,25 +412,30 @@ export default function ScanHistory() {
               </div>
             )}
 
-            {/* Evidence Sources List */}
             {selectedScan.evidence?.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-mono text-slate-400 mb-2">// EVIDENCE SOURCES & CITATIONS ({selectedScan.evidence.length})</p>
-                <div className="flex flex-col gap-2">
+              <div className="space-y-2">
+                <p className="text-xs font-mono text-[rgba(236,232,255,0.65)]">
+                  Evidence Sources ({selectedScan.evidence.length})
+                </p>
+                <div className="space-y-2">
                   {selectedScan.evidence.map((s, idx) => (
-                    <div key={idx} className="p-2.5 bg-black/30 border border-slate-800/80 rounded flex items-center justify-between">
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl flex items-center justify-between gap-2 text-xs"
+                      style={{ background: 'rgba(13,8,48,0.6)', border: '1px solid rgba(196,178,255,0.12)' }}
+                    >
                       <div>
-                        <p className="text-xs font-mono font-bold text-slate-200">{s.title || s.name}</p>
-                        <p className="text-xs font-mono text-slate-400">{s.publisher || 'Verified Source'}</p>
+                        <p className="font-semibold text-[#F4F2FF]">{s.title || s.name}</p>
+                        <p className="text-[rgba(236,232,255,0.62)]">{s.publisher || 'Source'}</p>
                       </div>
                       {s.source_url && (
                         <a
                           href={s.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs font-mono text-cyan-400 hover:underline flex items-center gap-1"
+                          className="text-[#00E5FF] hover:underline flex items-center gap-1 font-mono"
                         >
-                          View Source <ExternalLink size={11} />
+                          Source <ExternalLink size={11} />
                         </a>
                       )}
                     </div>
@@ -427,40 +444,40 @@ export default function ScanHistory() {
               </div>
             )}
 
-            {/* Feedback Section */}
-            <form onSubmit={handleFeedbackSubmit} className="pt-4 border-t border-slate-800">
-              <p className="text-xs font-mono text-slate-400 mb-2">// SUBMIT OPERATOR FEEDBACK (feedback table)</p>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-mono text-slate-400">Rating:</span>
-                {[1, 2, 3, 4, 5].map(star => (
+            {/* Feedback */}
+            <form onSubmit={handleFeedbackSubmit} className="pt-4 border-t space-y-3" style={{ borderColor: 'rgba(196,178,255,0.14)' }}>
+              <p className="text-xs font-mono text-[rgba(236,232,255,0.65)]">Submit Accuracy Feedback</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[rgba(236,232,255,0.6)]">Rating:</span>
+                {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     type="button"
                     key={star}
                     onClick={() => setRating(star)}
-                    className="text-amber-400 hover:scale-110 transition-transform"
+                    className="text-[#FFBF69] hover:scale-110 transition-transform"
                   >
-                    <Star size={16} fill={star <= rating ? '#fbbf24' : 'none'} />
+                    <Star size={16} fill={star <= rating ? '#FFBF69' : 'none'} />
                   </button>
                 ))}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={feedbackComment}
-                  onChange={e => setFeedbackComment(e.target.value)}
-                  placeholder="Optional operator notes or feedback..."
-                  className="flex-1 px-3 py-2 text-xs font-mono bg-black/50 border border-slate-800 text-slate-200 rounded outline-none"
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  placeholder="Optional notes on assessment accuracy..."
+                  className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-[#0D0830] border border-[rgba(196,178,255,0.18)] text-[#F4F2FF] outline-none"
                 />
                 <button
                   type="submit"
                   disabled={feedbackSubmitting}
-                  className="btn-neon px-3 py-2 text-xs font-mono whitespace-nowrap"
+                  className="tl-btn-primary text-xs py-2 px-4 whitespace-nowrap"
                 >
-                  {feedbackSubmitting ? 'SAVING...' : 'SAVE FEEDBACK'}
+                  {feedbackSubmitting ? 'Saving...' : 'Save Feedback'}
                 </button>
               </div>
             </form>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>

@@ -1,20 +1,43 @@
-/** Shared utility helpers */
+/** Shared utility helpers — TrustLens AI Cyber Intelligence Palette */
 
 export function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val))
 }
 
+export function normalizeRiskLevel(level) {
+  const norm = String(level || 'low').toLowerCase().trim()
+  if (norm === 'high' || norm === 'critical' || norm === 'dangerous') return 'high'
+  if (norm === 'medium' || norm === 'moderate' || norm === 'suspicious') return 'medium'
+  return 'low'
+}
+
+export async function copyToClipboard(text) {
+  if (!text) return false
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(String(text))
+      return true
+    }
+  } catch {
+    // Fallback below
+  }
+  return false
+}
+
 export function formatDate(iso) {
+  if (!iso) return 'N/A'
   const d = new Date(iso)
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function formatTime(iso) {
+  if (!iso) return ''
   const d = new Date(iso)
   return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function formatDateTime(iso) {
+  if (!iso) return 'N/A'
   return `${formatDate(iso)}, ${formatTime(iso)}`
 }
 
@@ -23,28 +46,40 @@ export function truncate(str, max = 80) {
   return str.length > max ? str.slice(0, max) + '…' : str
 }
 
-/** Risk level helpers — neon cyberpunk palette */
+/** Risk level helpers — TrustLens AI Violet & Cyan Palette */
 export function riskColor(level) {
-  return level === 'HIGH' ? '#ff006e' : level === 'MEDIUM' ? '#ffb800' : '#00ff9f'
+  const norm = (level || 'LOW').toUpperCase()
+  return norm === 'HIGH' ? '#FF5B78' : norm === 'MEDIUM' ? '#FFBF69' : '#5EE6A8'
 }
 
 export function riskBg(level) {
-  return level === 'HIGH' ? '#ff006e0c' : level === 'MEDIUM' ? '#ffb8000c' : '#00ff9f0c'
+  const norm = (level || 'LOW').toUpperCase()
+  return norm === 'HIGH'
+    ? 'rgba(255, 91, 120, 0.10)'
+    : norm === 'MEDIUM'
+      ? 'rgba(255, 191, 105, 0.10)'
+      : 'rgba(94, 230, 168, 0.10)'
 }
 
 export function riskBorder(level) {
-  return level === 'HIGH' ? '#ff006e33' : level === 'MEDIUM' ? '#ffb80033' : '#00ff9f33'
+  const norm = (level || 'LOW').toUpperCase()
+  return norm === 'HIGH'
+    ? 'rgba(255, 91, 120, 0.34)'
+    : norm === 'MEDIUM'
+      ? 'rgba(255, 191, 105, 0.34)'
+      : 'rgba(94, 230, 168, 0.34)'
 }
 
 export function verdictColor(verdict) {
   const map = {
-    SUPPORTED: '#00ff9f',
-    CONTRADICTED: '#ff006e',
-    MIXED: '#ffb800',
-    UNVERIFIED: '#4a6080',
-    INSUFFICIENT: '#bf00ff',
+    SUPPORTED: '#5EE6A8',
+    CONTRADICTED: '#FF5B78',
+    MIXED: '#FFBF69',
+    UNVERIFIED: '#00E5FF',
+    INSUFFICIENT: '#A78BFA',
+    'INSUFFICIENT EVIDENCE': '#A78BFA',
   }
-  return map[verdict] || '#4a6080'
+  return map[(verdict || '').toUpperCase()] || '#8D94FF'
 }
 
 export function verdictLabel(verdict) {
@@ -54,14 +89,25 @@ export function verdictLabel(verdict) {
     MIXED: 'Mixed or Potentially Misleading',
     UNVERIFIED: 'Unverified',
     INSUFFICIENT: 'Insufficient Evidence',
+    'INSUFFICIENT EVIDENCE': 'Insufficient Evidence',
   }
   return map[verdict] || verdict
 }
 
 export function scanTypeLabel(type) {
-  return type === 'SCAM' ? 'Scam Message' : type === 'NEWS' ? 'Fake News' : 'URL Safety'
+  const t = (type || '').toUpperCase()
+  if (t === 'SCAM') return 'Scam Detection'
+  if (t === 'NEWS') return 'Fake News'
+  if (t === 'URL') return 'URL Safety'
+  if (t === 'MULTIMODAL') return 'Multimodal AI'
+  return t || 'Scan'
 }
 
 export function scanTypeIcon(type) {
-  return type === 'SCAM' ? '💬' : type === 'NEWS' ? '📰' : '🔗'
+  const t = (type || '').toUpperCase()
+  if (t === 'SCAM') return '🛡️'
+  if (t === 'NEWS') return '📰'
+  if (t === 'URL') return '🔗'
+  if (t === 'MULTIMODAL') return '✨'
+  return '🔍'
 }

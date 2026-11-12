@@ -12,6 +12,7 @@ import URLChecker from './pages/URLChecker.jsx'
 import MultimodalAnalyzer from './pages/MultimodalAnalyzer.jsx'
 import TrustLensChatbot from './pages/TrustLensChatbot.jsx'
 import ModelComparison from './pages/ModelComparison.jsx'
+import CommunityIntelligence from './pages/CommunityIntelligence.jsx'
 import ScanHistory from './pages/ScanHistory.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
@@ -44,6 +45,7 @@ export default function App() {
               <Route path="/scan/news" element={<FakeNewsChecker />} />
               <Route path="/scan/url" element={<URLChecker />} />
               <Route path="/scan/compare" element={<ModelComparison />} />
+              <Route path="/community" element={<CommunityIntelligence />} />
               <Route path="/history" element={<ScanHistory />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

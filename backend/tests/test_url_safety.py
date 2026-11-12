@@ -274,6 +274,52 @@ class TestURLSafetyEngine(unittest.TestCase):
         self.assertIn("threat_intelligence", data)
         self.assertIn("recommendations", data)
 
+    # 23. Authoritative RDAP routing & registrar/age extraction
+    def test_23_rdap_authoritative_parsing(self):
+        svc = RDAPService()
+        svc._domain_cache.clear()
+        urls = svc._get_rdap_urls_for_domain("example.com")
+        self.assertTrue(urls[0].startswith("https://rdap.verisign.com/com/v1/domain/example.com"))
+
+        with patch("app.services.url_security.rdap_service.requests.get") as mock_get:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {
+                "events": [{"eventAction": "registration", "eventDate": "2010-05-01"}],
+                "entities": [
+                    {
+                        "roles": ["registrar"],
+                        "vcardArray": ["vcard", [["version", {}, "text", "4.0"], ["org", {}, "text", "Example Registrar LLC"]]]
+                    }
+                ],
+                "nameservers": [{"ldhName": "ns1.example.com"}]
+            }
+            mock_get.return_value = mock_resp
+            res = svc.lookup_domain("example-parsed.com")
+            self.assertEqual(res["status"], "success")
+            self.assertEqual(res["registrar"], "Example Registrar LLC")
+            self.assertIsNotNone(res["domain_age_days"])
+            self.assertIn("year(s)", res["domain_age_readable"])
+
+    # 24. Port-43 WHOIS fallback for TLDs without RDAP (e.g., .io)
+    def test_24_rdap_whois_fallback(self):
+        svc = RDAPService()
+        svc._domain_cache.clear()
+        with patch("app.services.url_security.rdap_service.requests.get") as mock_get, \
+             patch.object(svc, "_query_whois_port43") as mock_whois:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 404
+            mock_get.return_value = mock_resp
+            mock_whois.return_value = (
+                "Domain Name: sample-site.io\n"
+                "Creation Date: 2015-03-10T12:00:00Z\n"
+                "Registrar: MarkMonitor Inc.\n"
+            )
+            res = svc.lookup_domain("sample-site.io")
+            self.assertEqual(res["status"], "success")
+            self.assertEqual(res["registrar"], "MarkMonitor Inc.")
+            self.assertIn("year(s)", res["domain_age_readable"])
+
 
 if __name__ == "__main__":
     unittest.main()
